@@ -7,9 +7,11 @@ from sys import argv
 from common.constants import SECRET_KEY
 from server import CenterServer, WvsLogin, WvsGame
 
-# server_option = argv[1]
+if len(argv) > 1:
+    server_option = argv[1]
 
-server_option = input("Which Server do we start? [center|login|game] :")
+else:
+    server_option = input("Which Server do we start? : \n[center|login|game] ")
 
 cls = {
     'center': CenterServer,

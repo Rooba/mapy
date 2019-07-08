@@ -9,7 +9,6 @@ class MapleCryptograph(BlankCryptograph):
     @classmethod
     def transform(cls, buffer, iv):
         maes = MapleAes()
-        size = MapleAes.get_length(buffer)
 
         buf = buffer[4:]
         maes.transform(buf, iv)

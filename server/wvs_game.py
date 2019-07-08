@@ -12,6 +12,10 @@ from .server_base import ServerBase
 from ._wvs_game.center_server import CenterServer
 
 class WvsGame(ServerBase):
+
+    __opcodes__ = CRecvOps
+    __crypto__ = crypto.MapleCryptograph
+
     def __init__(self, loop, security_key=None):
         self._loop = loop if loop is not None else asyncio.get_event_loop()
 
@@ -48,7 +52,7 @@ class WvsGame(ServerBase):
             self.ticker_message = packet.decode_string()
             self.channel_id = packet.decode_byte()
             self._port = packet.decode_short()
-            self.allow_multi_leveling = bool(packet.decode_byte())
+            self.allow_multi_leveling = packet.decode_bool()
             self.exp_rate = packet.decode_int()
             self.quest_exp_rate = packet.decode_int()
             self.party_quest_exp_rate = packet.decode_int()

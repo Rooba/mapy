@@ -1,6 +1,10 @@
+from pyaes import AESModeOfOperationCBC
+
 class FastAes:
 
-    sbox = [
+    __rounds = 14 # 14 ?
+
+    sbox = bytearray([
         99, 124, 119, 123, 242, 107, 111, 197,
         48, 1, 103, 43, 254, 215, 171, 118,
         202, 130, 201, 125, 250, 89, 71, 240,
@@ -33,44 +37,55 @@ class FastAes:
         155, 30, 135, 233, 206, 85, 40, 223,
         140, 161, 137, 13, 191, 230, 66, 104,
         65, 153, 45, 15, 176, 84, 187, 22,
-    ]
+    ])
 
     shift = lambda x, shift: (x >> shift) | (x << (32 - shift))
 
-    rcon = [
+    rcon = bytearray([
         0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 
         0x40, 0x80, 0x1b, 0x36, 0x6c, 0xd8, 
         0xab, 0x4d, 0x9a, 0x2f, 0x5e, 0xbc, 
         0x63, 0xc6, 0x97, 0x35, 0x6a, 0xd4, 
         0xb3, 0x7d, 0xfa, 0xef, 0xc5, 0x91,
-    ]
+    ])
 
     def __init__(self, key):
         self._working_key = self.generate_working_key(key)
 
     def generate_working_key(self, key):
-        key_length = len(key) / 4
-        key_result = [[] for _ in range(4)]
+        key_length = int(len(key) / 4)
+        key_result = [[] for _ in range(self.__rounds + 1)]
 
-        t, i = 0, 0
+        i = 0
+
+        while i <= self.__rounds:
+            key_result[i] = [None, None, None, None]
+            i += 1
+
+        t = 0
+        i = 0
 
         while i < len(key):
             key_result[t >> 2][t & 3] = FastAes.le_to_int32(key, i)
-
-            t += 1
+            
             i += 4
+            t += 1
 
-        k = (4 + 1) << 2
+        k = (self.__rounds + 1) << 2
         i = key_length
 
-        while i < k:
-            temp = key_result[(i - 1) >> 2][(i -1) & 3]
+        while (i < k):
+            temp = key_result[(i - 1) >> 2][(i - 1) & 3]
+
             if i % key_length == 0:
-                temp = self.sub_word(self.shift(temp, 8)) ^ self.rcon[(i / key_length) - 1]
-            elif key_length > 6 and i % key_length == 4:
+                temp = self.sub_word(FastAes.shift(temp, 8)) ^ self.rcon[int((i / key_length)) - 1]
+            
+            elif (key_length > 6) and (i % key_length == 4):
                 temp = self.sub_word(temp)
 
             key_result[i >> 2][i & 3] = key_result[(i - key_length) >> 2][(i - key_length) & 3] ^ temp
+
+            i += 1
 
         return key_result
 
@@ -88,7 +103,7 @@ class FastAes:
         C2 ^= wk[2]
         C3 ^= wk[3]
 
-        while cur_round < 12:
+        while cur_round < (self.__rounds - 2):
             cur_round += 1
             wk = self._working_key[cur_round]
             r0 = self.table0[C0 & 255] ^ self.table1[(C1 >> 8) & 255] ^ self.table2[(C2 >> 16) & 255] ^ self.table3[C3 >> 24] ^ wk[0]
@@ -356,7 +371,7 @@ class FastAes:
     ]
 
 class MapleAes:
-    _user_key = [
+    _user_key = bytearray([
         0x13, 0x00, 0x00, 0x00,
         0x08, 0x00, 0x00, 0x00,
         0x06, 0x00, 0x00, 0x00,
@@ -365,17 +380,22 @@ class MapleAes:
         0x0f, 0x00, 0x00, 0x00,
         0x33, 0x00, 0x00, 0x00,
         0x52, 0x00, 0x00, 0x00
-    ]
+    ])
 
     def __init__(self):
         self._transformer = FastAes(self._user_key)
-    
-    def transform(self, buffer, iv):
+
+    @classmethod
+    def transform(cls, buffer, iv):
+        self = MapleAes()
+
         remaining = len(buffer)
+
         length = 0x5B0
         start = 0
 
-        real_iv = []
+        real_iv = bytearray(16)
+
         iv_bytes = [
             iv.value & 255,
             iv.value >> 8 & 255,
@@ -384,27 +404,36 @@ class MapleAes:
         ]
 
         while remaining > 0:
-            for i in range(16):
-                real_iv[i] = iv_bytes[i % 4]
+
+            for index in range(len(real_iv)):
+                real_iv[index] = iv_bytes[index % 4]
             
             if remaining < length:
                 length = remaining
 
             index = start
+            
             while index < (start + length):
                 sub = index - start
 
                 if sub % len(real_iv) == 0:
+                    print(real_iv)
                     self._transformer.transform_block(real_iv)
-                
+                    print(real_iv)
+                    pass
+
                 buffer[index] ^= real_iv[sub % len(real_iv)]
+
+                index += 1
             
             start += length
             remaining -= length
             length = 0x5B4
 
         iv.shuffle()
+
+        return buffer
     
     @staticmethod
-    def get_length(buffer):
-        return int.from_bytes(buffer, 'little') ^ int.from_bytes(buffer[2:4], 'little')
+    def get_header(data, iv, length, major_ver):
+            return -(major_ver + 1) ^ iv.hiword()

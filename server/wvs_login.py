@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import string
 
 log = logging.getLogger(__name__)
 
@@ -8,32 +9,32 @@ from common.constants import LOGIN_PORT, CENTER_PORT, HOST_IP, AUTO_REGISDTER, M
 
 from common.enum import ServerRegistrationResponse
 
+from client import WvsLoginClient
 from net.packets.opcodes import CRecvOps, InterOps
 from net.packets import crypto, Packet
 from net.packets.packet import packet_handler
-from utils.cpacket import COutPacket
-
+from utils.cpacket import CPacket
 from server._wvs_login import Channel, World, CenterServer
 from server.server_base import ServerBase
+from web import HTTPClient
 
 class WvsLogin(ServerBase):
     __opcodes__ = CRecvOps
     __crypto__ = crypto.MapleCryptograph
-
-    # TODO: Connect to center and store under self.__parent
 
     def __init__(self, loop=None, security_key=None):
         loop = loop if loop is not None else asyncio.get_event_loop()
 
         super().__init__(LOGIN_PORT, 'LoginServer', loop)
         self._security_key = security_key
-        self._clients = []
+
         self._worlds = []
         self._auto_register = AUTO_REGISDTER
         self._request_pin = REQUEST_PIN
         self._request_PIC = REQUEST_PIC
         self._require_staff_ip = REQUIRE_STAFF_IP
         self._max_characters = MAX_CHARACTERS
+        self._api = HTTPClient(loop=self._loop)
 
         for i in range(WORLD_COUNT):
             self._worlds.append(World(i))
@@ -60,16 +61,31 @@ class WvsLogin(ServerBase):
     
     @packet_handler(InterOps.UpdateChannel)
     async def update_channel(self, client, packet):
-        pass
+        world_id = packet.decode_byte()
+        add = packet.decode_bool()
+        world = self._worlds[world_id]
+
+        if add:
+            world._channels.append(Channel(packet))
+        else:
+            channel_id = packet.decode_byte()
+            world._channels.pop(channel_id)
 
     @packet_handler(InterOps.UpdateChannelPopulation)
     async def update_channel_population(self, client, packet):
-        pass
+        world_id = packet.decode_byte()
+        channel_id = packet.decode_byte()
+
+        self._worlds[world_id]._channels[channel_id].population = packet.decode_int()
 
     @packet_handler(InterOps.CharacterNameCheckResponse)
     async def check_character_name(self, client, packet):
+        # Don't need this?
         pass
     
+    async def is_name_taken(self, name):
+        pass
+
     @packet_handler(InterOps.CharacterEntriesResponse)
     async def get_characters(self, client, packet):
         pass
@@ -86,11 +102,24 @@ class WvsLogin(ServerBase):
     # End InterOps
     ##
 
-    @packet_handler(CRecvOps.CheckPassword)
-    async def try_login(self, client, packet):
+    async def client_connect(self, client):
+        return WvsLoginClient(self, client)
+
+    @packet_handler(CRecvOps.CP_CheckDuplicatedID)
+    async def check_duplicated_id(self, client, packet):
+        username = packet.decode_string()
+        is_available = await self._api.is_username_taken(username)
+
+        client.send_packet(CPacket.check_duplicated_id_result(username, is_available))
+
+    async def login(self, client, username, password):
+        pass
+
+    @packet_handler(CRecvOps.CP_CheckPassword)
+    async def check_password(self, client, packet):
         password = packet.decode_string()
         username = packet.decode_string().lower()
-        
+
         response = await client.login(username, password)
 
-        await client.send_packet(COutPacket.check_password_result(client, response))
+        await client.send_packet(CPacket.check_password_result(client, response))

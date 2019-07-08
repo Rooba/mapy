@@ -1,11 +1,13 @@
-from net.packets.packet import Packet
-from net.packets.opcodes import CSendOps
+from net import packets
+from net.packets import CSendOps
 
-class COutPacket:
-    
+class CPacket:
+    def __init__(self):
+        pass
+
     @staticmethod
     def check_password_result(client, return_response):
-        packet = Packet(op_code=CSendOps.CheckPasswordResult)
+        packet = packets.Packet(op_code=CSendOps.CheckPasswordResult)
 
         if return_response != 0:
             packet.encode_int(return_response)
@@ -32,4 +34,11 @@ class COutPacket:
         packet.encode_long(0)
         packet.encode_long(0)
 
+        return packet
+    
+    @staticmethod
+    def check_duplicated_id_result(name, is_available):
+        packet = packets.Packet(op_code=CSendOps.LP_CheckDuplicatedIDResult)
+        packet.encode_string(name)
+        packet.encode_byte(is_available)
         return packet

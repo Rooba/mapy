@@ -8,11 +8,10 @@ from common.constants import VERSION, SUB_VERSION, LOCALE
 from net.client.client_socket import ClientSocket
 from net.packets.crypto import MapleCryptograph, MapleIV
 from net.packets.packet import Packet
+import server
 
 class ClientBase:
     def __init__(self, parent, socket):
-        self.m_riv = None
-        self.m_siv = None
         self.m_socket = socket
         
         self._parent = parent
@@ -23,27 +22,30 @@ class ClientBase:
         self._channel_id = None
 
     async def initialize(self):
-        if isinstance(self._parent.__crypto__, MapleCryptograph):
 
-            self.m_siv = MapleIV(randint(0, 2**31-1))
-            self.m_riv = MapleIV(randint(0, 2**31-1))
+        if not isinstance(self._parent, server.CenterServer):
 
-            packet = Packet(op_code=0X0E)
-            packet.encode_short(VERSION)
-            packet.encode_string(SUB_VERSION)
-            packet.encode_int(self.m_siv)
-            packet.encode_int(self.m_riv)
-            packet.encode_byte(LOCALE)
+            self.m_socket.m_siv = MapleIV(randint(0, 2**31-1))
+            self.m_socket.m_riv = MapleIV(randint(0, 2**31-1))
 
-            await self.m_socket.send_packet_raw(packet)
+            with Packet(op_code=0X0E) as packet:
+                packet.encode_short(VERSION)
+                packet.encode_string(SUB_VERSION)
+                packet.encode_int(int(self.m_socket.m_siv))
+                packet.encode_int(int(self.m_socket.m_riv))
+                packet.encode_byte(LOCALE)
+
+                await self.send_packet_raw(packet)
 
         await self.recieve()
 
     async def recieve(self):
         m_recvBuffer = await self.sock_recv()
 
-        if self.m_riv:
-            m_recvBuffer = self.manipulate_buffer(m_recvBuffer, self.m_riv)
+        if self.m_socket.m_riv:
+            m_recvBuffer = self.manipulate_buffer(m_recvBuffer)
+        
+        print(m_recvBuffer)
 
         self.dispatch(Packet(m_recvBuffer, op_codes=self._parent.__opcodes__))
 
@@ -54,17 +56,18 @@ class ClientBase:
         return await self.m_socket.sock_recv()
 
     async def send_packet(self, packet):
-        buffer = packet.to_array()
-        opcode = packet.opcode
+        op_code = packet.op_code
+
+        print(f"Sent : [{op_code.name}] {packet.to_string()}")
 
         await self.m_socket.send_packet(packet)
 
     async def send_packet_raw(self, packet):
-        print(f"Sent : [{packet.op_code}] [{packet.to_string()}]")
+        print(f"Sent : [{packet.op_code}] {packet.to_string()}")
         await self.m_socket.send_packet_raw(packet)
 
-    def manipulate_buffer(self, buffer, iv):
-        return self._parent.__crypto__.transform(buffer, iv)
+    def manipulate_buffer(self, buffer):
+        return self.m_socket.manipulate_buffer(buffer)
 
     @property
     def server_id(self):

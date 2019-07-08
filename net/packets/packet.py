@@ -29,6 +29,9 @@ class ByteBuffer(BytesIO):
     def decode_byte(self):
         return (int).from_bytes(self.read(1), 'little')
     
+    def decode_bool(self):
+        return bool(self.decode_byte())
+    
     def decode_short(self):
         return (int).from_bytes(self.read(2), 'little')
 
@@ -58,7 +61,7 @@ class Packet(ByteBuffer):
 
         if not data:
             self.op_code = op_code
-
+            
             if isinstance(self.op_code, int):
                 self.encode_short(self.op_code)
             
@@ -72,7 +75,10 @@ class Packet(ByteBuffer):
         return self.getvalue()
 
     def to_string(self):
-        return ' '.join([self.getvalue().hex()[i:i+2] for i in range(0, len(self.getvalue().hex()), 2)])
+        return ' '.join([self.getvalue().hex()[i:i+2] for i in range(4, len(self.getvalue().hex()), 2)])
+
+    def __len__(self):
+        return len(self.getvalue())
 
 class PacketHandler:
     def __init__(self, name, callback, **kwargs):

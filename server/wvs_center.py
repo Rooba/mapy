@@ -93,6 +93,7 @@ class CenterServer(ServerBase):
 
                 if server_type == ServerType.shop:
                     self._shop = client
+                    self._shop.port = 9595
                     out_packet.encode_short(9595) # shop port
                 
                 else:
