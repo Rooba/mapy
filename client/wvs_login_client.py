@@ -17,7 +17,6 @@ class WvsLoginClient(ClientBase):
     def __init__(self, parent, socket):
         super().__init__(parent, socket)
 
-        # self._parent = parent
         self._account = None
 
     async def login(self, username, password):

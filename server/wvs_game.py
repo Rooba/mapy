@@ -14,7 +14,6 @@ from ._wvs_game.center_server import CenterServer
 class WvsGame(ServerBase):
 
     __opcodes__ = CRecvOps
-    __crypto__ = crypto.MapleCryptograph
 
     def __init__(self, loop, security_key=None):
         self._loop = loop if loop is not None else asyncio.get_event_loop()

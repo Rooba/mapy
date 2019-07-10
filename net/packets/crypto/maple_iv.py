@@ -33,7 +33,6 @@ class MapleIV:
         return self.value
 
     def shuffle(self):
-
         seed = [0xf2, 0x53, 0x50, 0xc6]
         p_iv = self.value
 

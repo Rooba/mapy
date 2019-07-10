@@ -5,7 +5,7 @@ import struct
 from asyncio import create_task, Lock, get_event_loop
 
 from common.constants import VERSION, SUB_VERSION, LOCALE
-from net.packets.crypto import MapleCryptograph, MapleIV, MapleAes, shanda
+from net.packets.crypto import MapleIV, MapleAes, shanda
 from net.packets.packet import Packet
 from utils import to_string
 

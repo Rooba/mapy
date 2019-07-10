@@ -6,14 +6,13 @@ log = logging.getLogger(__name__)
 
 from common.constants import VERSION, SUB_VERSION, LOCALE
 from net.client.client_socket import ClientSocket
-from net.packets.crypto import MapleCryptograph, MapleIV
+from net.packets.crypto import MapleIV
 from net.packets.packet import Packet
 import server
 
 class ClientBase:
     def __init__(self, parent, socket):
         self.m_socket = socket
-        
         self._parent = parent
         self.logged_in = False
         self._port = None
@@ -24,11 +23,8 @@ class ClientBase:
     async def initialize(self):
 
         if not isinstance(self._parent, server.CenterServer):
-
             self.m_socket.m_siv = MapleIV(randint(0, 2**31-1))
-            # self.m_socket.m_siv = MapleIV(100)
             self.m_socket.m_riv = MapleIV(randint(0, 2**31-1))
-            # self.m_socket.m_riv = MapleIV(50)
 
             with Packet(op_code=0x0E) as packet:
                 packet.encode_short(VERSION)

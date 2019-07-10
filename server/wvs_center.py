@@ -7,20 +7,10 @@ from common.enum import ServerType, ServerRegistrationResponse
 from client import WvsCenterClient
 from net.packets.packet import packet_handler, Packet
 from net.packets.opcodes import InterOps
-from net.packets.crypto.cryptograph import BlankCryptograph
 from . import ServerBase
 from server._wvs_center import WvsWorld, WorldManager
 
 
-"""
-
-MultiWorld
-
-CenterServer._Worlds: List[:class:World (World.id)]
-CenterServer._Channels : List[:class:Channel (Channel._world_id)]
-??
-
-"""
 
 class CenterServer(ServerBase):
     """Server connection listener for incoming client socket connections
@@ -41,7 +31,6 @@ class CenterServer(ServerBase):
     """
 
     __opcodes__ = InterOps
-    __crypto__ = BlankCryptograph
 
     def __init__(self, loop=None, security_key=None):
         super().__init__(constants.CENTER_PORT, 'CenterServer', loop)

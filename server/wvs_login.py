@@ -21,7 +21,6 @@ from web import HTTPClient
 
 class WvsLogin(ServerBase):
     __opcodes__ = CRecvOps
-    __crypto__ = crypto.MapleCryptograph
 
     def __init__(self, loop=None, security_key=None):
         loop = loop if loop is not None else asyncio.get_event_loop()
@@ -53,12 +52,10 @@ class WvsLogin(ServerBase):
         
         if response == ServerRegistrationResponse.Valid:
             self._loop.create_task(self.listen())
-
             log.debug("Registered Login Server")
         
         else:
             log.error("Failed to register Login Server [Reason: %s]", response.name)
-
             self.is_alive = False
     
     @packet_handler(InterOps.UpdateChannel)
@@ -116,13 +113,6 @@ class WvsLogin(ServerBase):
             i_packet.seek(2)
             client.dispatch(i_packet)
 
-    @packet_handler(CRecvOps.CP_CheckDuplicatedID)
-    async def check_duplicated_id(self, client, packet):
-        username = packet.decode_string()
-        is_available = await self._api.is_username_taken(username)
-
-        await client.send_packet(CPacket.check_duplicated_id_result(username, is_available))
-
     async def login(self, client, username, password):
         client.account = Account(id=1001, username=username, password=password)
 
@@ -130,12 +120,20 @@ class WvsLogin(ServerBase):
 
     @packet_handler(CRecvOps.CP_CheckPassword)
     async def check_password(self, client, packet):
-
         password = packet.decode_string()
         username = packet.decode_string()
-
-        print(username, password)
 
         response = await client.login(username, password)
 
         await client.send_packet(CPacket.check_password_result(client, response))
+    
+    @packet_handler(CRecvOps.CP_WorldRequest)
+    async def world_request(self, client, packet):
+        pass
+
+    @packet_handler(CRecvOps.CP_CheckDuplicatedID)
+    async def check_duplicated_id(self, client, packet):
+        username = packet.decode_string()
+        is_available = await self._api.is_username_taken(username)
+
+        await client.send_packet(CPacket.check_duplicated_id_result(username, is_available))
