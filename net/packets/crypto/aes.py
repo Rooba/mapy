@@ -1,4 +1,5 @@
 from pyaes import AESModeOfOperationCBC
+import struct
 
 class FastAes:
 
@@ -59,7 +60,7 @@ class FastAes:
         i = 0
 
         while i <= self.__rounds:
-            key_result[i] = [None, None, None, None]
+            key_result[i] = [0, 0, 0, 0]
             i += 1
 
         t = 0
@@ -382,15 +383,11 @@ class MapleAes:
         0x52, 0x00, 0x00, 0x00
     ])
 
-    def __init__(self):
-        self._transformer = FastAes(self._user_key)
-
     @classmethod
     def transform(cls, buffer, iv):
-        self = MapleAes()
-
+        from Cryptodome.Cipher import AES
+        
         remaining = len(buffer)
-
         length = 0x5B0
         start = 0
 
@@ -404,7 +401,6 @@ class MapleAes:
         ]
 
         while remaining > 0:
-
             for index in range(len(real_iv)):
                 real_iv[index] = iv_bytes[index % 4]
             
@@ -412,18 +408,14 @@ class MapleAes:
                 length = remaining
 
             index = start
-            
-            while index < (start + length):
+
+            while index < start + length:
                 sub = index - start
 
-                if sub % len(real_iv) == 0:
-                    print(real_iv)
-                    self._transformer.transform_block(real_iv)
-                    print(real_iv)
-                    pass
+                if (sub % 16) == 0:
+                    real_iv = AES.new(cls._user_key, AES.MODE_ECB).encrypt(real_iv)
 
-                buffer[index] ^= real_iv[sub % len(real_iv)]
-
+                buffer[index] ^= real_iv[sub % 16]
                 index += 1
             
             start += length
@@ -436,4 +428,7 @@ class MapleAes:
     
     @staticmethod
     def get_header(data, iv, length, major_ver):
-            return -(major_ver + 1) ^ iv.hiword()
+            first = -(major_ver + 1) ^ iv.hiword
+            data[0:2] = (-(major_ver + 1) ^ iv.hiword).to_bytes(2, 'little', signed = True)
+            data[2:4] = (first ^ 8).to_bytes(2, 'little', signed = True)
+            return data

@@ -25,14 +25,16 @@ class ClientBase:
 
         if not isinstance(self._parent, server.CenterServer):
 
-            self.m_socket.m_siv = MapleIV(randint(0, 2**31-1))
-            self.m_socket.m_riv = MapleIV(randint(0, 2**31-1))
+            # self.m_socket.m_siv = MapleIV(randint(0, 2**31-1))
+            self.m_socket.m_siv = MapleIV(100)
+            # self.m_socket.m_riv = MapleIV(randint(0, 2**31-1))
+            self.m_socket.m_riv = MapleIV(50)
 
-            with Packet(op_code=0X0E) as packet:
+            with Packet(op_code=0x0E) as packet:
                 packet.encode_short(VERSION)
                 packet.encode_string(SUB_VERSION)
-                packet.encode_int(int(self.m_socket.m_siv))
                 packet.encode_int(int(self.m_socket.m_riv))
+                packet.encode_int(int(self.m_socket.m_siv))
                 packet.encode_byte(LOCALE)
 
                 await self.send_packet_raw(packet)
@@ -44,8 +46,6 @@ class ClientBase:
 
         if self.m_socket.m_riv:
             m_recvBuffer = self.manipulate_buffer(m_recvBuffer)
-        
-        print(m_recvBuffer)
 
         self.dispatch(Packet(m_recvBuffer, op_codes=self._parent.__opcodes__))
 

@@ -1,5 +1,5 @@
 from asyncio import create_task, get_event_loop
-from socket import socket, SO_REUSEADDR, SOL_SOCKET
+from socket import socket, SO_REUSEADDR, SOL_SOCKET, AF_INET, SOCK_STREAM
 from typing import Tuple
 import logging
 
@@ -24,7 +24,7 @@ class ClientListener(object):
         self._parent = parent
 
         self._loop = parent._loop if parent._loop else get_event_loop()
-        self._serv_sock = socket()
+        self._serv_sock = socket(AF_INET, SOCK_STREAM)
         self._serv_sock.setblocking(0)
         self._serv_sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
         self._serv_sock.bind(connection)

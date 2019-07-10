@@ -5,12 +5,13 @@ import string
 log = logging.getLogger(__name__)
 
 from common.constants import LOGIN_PORT, CENTER_PORT, HOST_IP, AUTO_REGISDTER, MAX_CHARACTERS,\
-                            REQUEST_PIC, REQUEST_PIN, REQUIRE_STAFF_IP, WORLD_COUNT
+                            REQUEST_PIC, REQUEST_PIN, REQUIRE_STAFF_IP, WORLD_COUNT, AUTO_LOGIN
 
 from common.enum import ServerRegistrationResponse
 
 from client import WvsLoginClient
-from net.packets.opcodes import CRecvOps, InterOps
+from client.entities import Account
+from net.packets.opcodes import CRecvOps, InterOps, CSendOps
 from net.packets import crypto, Packet
 from net.packets.packet import packet_handler
 from utils.cpacket import CPacket
@@ -35,6 +36,7 @@ class WvsLogin(ServerBase):
         self._require_staff_ip = REQUIRE_STAFF_IP
         self._max_characters = MAX_CHARACTERS
         self._api = HTTPClient(loop=self._loop)
+        self._login_pool = []
 
         for i in range(WORLD_COUNT):
             self._worlds.append(World(i))
@@ -105,20 +107,34 @@ class WvsLogin(ServerBase):
     async def client_connect(self, client):
         return WvsLoginClient(self, client)
 
+    @packet_handler(CRecvOps.CP_CreateSecurityHandle)
+    async def create_secuirty_heandle(self, client, packet):
+        if AUTO_LOGIN:
+            i_packet = Packet(op_code = CRecvOps.CP_CheckPassword)
+            i_packet.encode_string("admin")
+            i_packet.encode_string("admin")
+            i_packet.seek(2)
+            client.dispatch(i_packet)
+
     @packet_handler(CRecvOps.CP_CheckDuplicatedID)
     async def check_duplicated_id(self, client, packet):
         username = packet.decode_string()
         is_available = await self._api.is_username_taken(username)
 
-        client.send_packet(CPacket.check_duplicated_id_result(username, is_available))
+        await client.send_packet(CPacket.check_duplicated_id_result(username, is_available))
 
     async def login(self, client, username, password):
-        pass
+        client.account = Account(id=1001, username=username, password=password)
+
+        return 0
 
     @packet_handler(CRecvOps.CP_CheckPassword)
     async def check_password(self, client, packet):
+
         password = packet.decode_string()
-        username = packet.decode_string().lower()
+        username = packet.decode_string()
+
+        print(username, password)
 
         response = await client.login(username, password)
 

@@ -67,6 +67,7 @@ class Packet(ByteBuffer):
             
             else:
                 self.encode_short(self.op_code.value)
+                
             
         else:
             self.op_code = self.op_codes(self.decode_short())
@@ -75,7 +76,7 @@ class Packet(ByteBuffer):
         return self.getvalue()
 
     def to_string(self):
-        return ' '.join([self.getvalue().hex()[i:i+2] for i in range(4, len(self.getvalue().hex()), 2)])
+        return ' '.join([self.getvalue().hex()[i:i+2] for i in range(0, len(self.getvalue().hex()), 2)])
 
     def __len__(self):
         return len(self.getvalue())

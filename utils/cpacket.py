@@ -7,7 +7,7 @@ class CPacket:
 
     @staticmethod
     def check_password_result(client, return_response):
-        packet = packets.Packet(op_code=CSendOps.CheckPasswordResult)
+        packet = packets.Packet(op_code=CSendOps.LP_CheckPasswordResult)
 
         if return_response != 0:
             packet.encode_int(return_response)
@@ -22,9 +22,10 @@ class CPacket:
         packet.encode_byte(0)
         packet.encode_short(0)
         packet.encode_byte(0)
-        packet.encode_string(client.account.name)
+        packet.encode_string(client.account.username)
         packet.encode_byte(0)
         packet.encode_byte(0)
+        packet.encode_long(0)
         packet.encode_long(0)
         packet.encode_int(1)
         packet.encode_byte(1)

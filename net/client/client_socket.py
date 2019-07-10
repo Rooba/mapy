@@ -1,3 +1,4 @@
+from io import BytesIO
 from random import randint
 import struct
 
@@ -25,39 +26,40 @@ class ClientSocket:
     async def sock_recv(self):
         return await self._loop.sock_recv(self._socket, self.recieve_size)
 
-    async def send_packet(self, packet):
-        packet_length = len(packet)
-        packet = packet.getvalue()
+    async def send_packet(self, out_packet):
+        packet_length = len(out_packet)
+        packet = bytearray(out_packet.getvalue())
+
+        buf = packet
+        # print(buf)
 
         final_length = len(packet) + 4
         final = bytearray(final_length)
 
-        final = MapleAes.get_header(final, self.m_siv, packet_length, VERSION)
-        final[4:] = packet
+        final[0:4] = MapleAes.get_header(packet, self.m_siv, packet_length, VERSION)
+        # final[4:] = packet
 
-        buf = final[4:][:]
         buf = shanda.encrypt_transform(buf)
-        buf = MapleAes.transform(buf, self.m_siv)
 
-        await self.send_packet_raw(buf)
+        print(' '.join([buf.hex()[i:i+2] for i in range(0, len(buf.hex()), 2)]))
+
+        # buf = MapleAes.transform(buf, self.m_siv)
+
+        final[4:] = buf
+
+        p = BytesIO()
+        p.write(final)
+
+        await self.send_packet_raw(p)
 
     async def send_packet_raw(self, packet):
         await self._loop.sock_sendall(self._socket, packet.getvalue())
 
     def manipulate_buffer(self, buffer):
-        
-        header = struct.unpack('!i', buffer[:4])[0]
-        # print(header)
-
-        packet_length = self.get_packet_length(header)
 
         buf = bytearray(buffer)[4:]
 
-        # size = MapleAes.get_length(buf)
         buf = MapleAes.transform(buf, self.m_riv)
-
-        print(packet_length, len(buf), buf)
-
         buf = shanda.decrypt_transform(buf)
 
         return buf

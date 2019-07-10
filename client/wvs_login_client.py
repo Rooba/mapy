@@ -29,6 +29,14 @@ class WvsLoginClient(ClientBase):
         return ret
 
     @property
+    def account(self):
+        return self._account
+    
+    @account.setter
+    def account(self, value):
+        self._account = value
+
+    @property
     def account_id(self):
         return self._account.id if getattr(self._account, 'id') else -1
     

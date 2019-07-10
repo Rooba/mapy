@@ -24,54 +24,54 @@ class MapleIV:
     def __int__(self):
         return self.value
 
+    @property
     def hiword(self):
         return self.value >> 16
     
+    @property
     def loword(self):
         return self.value
 
     def shuffle(self):
-        p_key = 0xC65053F2
+
+        seed = [0xf2, 0x53, 0x50, 0xc6]
         p_iv = self.value
 
-        seed = []
+        for i in range (4):
+            temp_p_iv = int((p_iv >> (8 * i))) & 255
+            
+            a = seed[1]
+            b = a
+            b = self._shuffle[b & 0xFF]
+            b -= temp_p_iv
+            seed[0] += b
+            b = seed[2]
+            b ^= self._shuffle[int(temp_p_iv) & 0xFF]
+            a -= int(b) & 0xFF
+            seed[1] = a
+            a = seed[3]
+            b = a
+            a -= int(seed[0] & 0xFF)
+            b = self._shuffle[int(b & 0xFF)]
+            b += temp_p_iv
+            b ^= seed[2]
+            seed[2] = b
+            a += int(self._shuffle[int(temp_p_iv) & 0xFF]) & 0xFF
+            seed[3] = a
 
-        for i in range(4):
-            seed.append(p_key >> (i * 8) & 255)
+            c = seed[0] & 0xFF
+            c |= (seed[1] << 8) & 0xFF00
+            c |= (seed[2] << 16) & 0xFF0000
+            c |= (seed[3] << 24) & 0xFF000000
 
-        for i in range(4):
-            temp_p_iv = p_iv >> (8 * i) & 255
+            d = c
+            d >>= 0x1D
+            c <<= 0x03
+            c |= d
 
-            print(self._shuffle[temp_p_iv])
+            seed[0] = c & 0xFF
+            seed[1] = (c >> 8) & 0xFF
+            seed[2] = (c >> 16) & 0xFF
+            seed[3] = (c >> 24) & 0xFF
 
-            seed[0] += (self._shuffle[seed[1]] - (temp_p_iv))
-            seed[1] -= (seed[2] ^ (self._shuffle[temp_p_iv]))
-
-            temp_3 = seed[3] - seed[0]
-
-            rebuild = seed[0] & 0xFF
-            rebuild |= seed[1] << 8 & 0xFF00
-            rebuild |= seed[2] << 16 & 0xFF0000
-            rebuild |= seed[3] << 24 & 0xFF000000
-
-            seed[2] ^= (temp_p_iv) >> (self._shuffle[seed[3]] * 8) & 255
-            seed[3] = temp_3 - (rebuild >> (8 * self._shuffle[temp_p_iv]) & 255)
-
-            rebuild = seed[0] & 0xFF
-            rebuild |= seed[1] << 8 & 0xFF00
-            rebuild |= seed[2] << 16 & 0xFF0000
-            rebuild |= seed[3] << 24 & 0xFF000000
-
-            new_seed = (rebuild << 3) | (rebuild >> 29)
-
-            seed[0] = new_seed & 255
-            seed[1] = new_seed >> 8 & 255
-            seed[2] = new_seed >> 16 & 255
-            seed[3] = new_seed >> 24 & 255
-
-        new_iv = seed[0] & 0xFF
-        new_iv |= seed[1] << 8 & 0xFF00
-        new_iv |= seed[2] << 16 & 0xFF0000
-        new_iv |= seed[3] << 24 & 0xFF000000
-
-        self.value = new_iv
+        self.value = seed
