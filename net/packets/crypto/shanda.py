@@ -33,42 +33,50 @@ def decrypt_transform(data):
 
 def encrypt_transform(data):
     ## DOES NOT WORK
+    b = {str(i): 0 for i in range(len(data))}
+    cur = 0
+
     for _ in range(3):
-        xor_key = 0
         length = len(data) & 0xFF
-
+        xor_key = 0
         i = 0
-
-        for i in range(len(data)):
-            cur = (((roll_left(data[0], 3)) + length) ^ xor_key)
+        while i < len(data):
+            
+            cur = roll_left(data[i], 3)
+            cur = cur + length
+            cur = (cur ^ xor_key) & 0xFF
             xor_key = cur
-            cur = (((~roll_right(cur, length & 0xFF)) & 0xFF) + 0x48)
-            data[i] = cur 
+            cur = ~roll_right(cur, length & 0xFF) & 0xFF
+            cur = (cur + 0x48) & 0xFF
+            data[i] = cur
+            b[str(i)] = cur
             length -= 1
-        
+            i += 1
+
+
         xor_key = 0
         length = len(data) & 0xFF
-
         i = len(data) - 1
 
         while i >= 0:
-            cur = (xor_key ^ (length + (roll_left(data[i], 4))))
+            cur = roll_left(data[i], 4)
+            cur += length
+            cur = (cur ^ xor_key) & 0xFF
             xor_key = cur
-            cur = roll_right(cur ^ 0x13, 3)
+            cur ^= 0x13
+            cur = roll_right(cur, 3)
             data[i] = cur
+            b[str(i)] = cur
             length -= 1
             i -= 1
 
-    return data
+    return bytearray([b[b_] for b_ in b])
 
 
-def roll_left(inn, count):
-    tmp = inn & 0xFF
-    tmp = tmp << (count % 8)
-    return ((tmp & 0xFF) | (tmp >> 8))
+def roll_left(value, shift):
+    num = value << (shift % 8)
+    return ((num & 0xFF) | (num >> 8))
 
-
-def roll_right(inn, count):
-    tmp = inn & 0xFF
-    tmp = (tmp << 8) >> (count % 8)
-    return (tmp & 0xFF) | (tmp >> 8)
+def roll_right(value, shift):
+    num = (value << 8) >> (shift % 8)
+    return ((num & 0xFF) | (num >> 8))

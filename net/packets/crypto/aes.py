@@ -430,5 +430,5 @@ class MapleAes:
     def get_header(data, iv, length, major_ver):
             first = -(major_ver + 1) ^ iv.hiword
             data[0:2] = (-(major_ver + 1) ^ iv.hiword).to_bytes(2, 'little', signed = True)
-            data[2:4] = (first ^ 8).to_bytes(2, 'little', signed = True)
+            data[2:4] = (first ^ length).to_bytes(2, 'little', signed = True)
             return data

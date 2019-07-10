@@ -25,10 +25,10 @@ class ClientBase:
 
         if not isinstance(self._parent, server.CenterServer):
 
-            # self.m_socket.m_siv = MapleIV(randint(0, 2**31-1))
-            self.m_socket.m_siv = MapleIV(100)
-            # self.m_socket.m_riv = MapleIV(randint(0, 2**31-1))
-            self.m_socket.m_riv = MapleIV(50)
+            self.m_socket.m_siv = MapleIV(randint(0, 2**31-1))
+            # self.m_socket.m_siv = MapleIV(100)
+            self.m_socket.m_riv = MapleIV(randint(0, 2**31-1))
+            # self.m_socket.m_riv = MapleIV(50)
 
             with Packet(op_code=0x0E) as packet:
                 packet.encode_short(VERSION)
@@ -39,15 +39,16 @@ class ClientBase:
 
                 await self.send_packet_raw(packet)
 
-        await self.recieve()
+        self._parent._loop.create_task(self.recieve())
 
     async def recieve(self):
-        m_recvBuffer = await self.sock_recv()
+        while self._parent.is_alive:
+            m_recvBuffer = await self.sock_recv()
 
-        if self.m_socket.m_riv:
-            m_recvBuffer = self.manipulate_buffer(m_recvBuffer)
+            if self.m_socket.m_riv:
+                m_recvBuffer = self.manipulate_buffer(m_recvBuffer)
 
-        self.dispatch(Packet(m_recvBuffer, op_codes=self._parent.__opcodes__))
+            self.dispatch(Packet(m_recvBuffer, op_codes=self._parent.__opcodes__))
 
     def dispatch(self, packet):
         self._parent._dispatcher.push(self, packet)

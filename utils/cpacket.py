@@ -13,7 +13,7 @@ class CPacket:
             packet.encode_int(return_response)
             packet.encode_short(0)
             return packet
-        
+
         packet.encode_byte(0)
         packet.encode_byte(0)
         packet.encode_int(0)

@@ -74,4 +74,9 @@ class MapleIV:
             seed[2] = (c >> 16) & 0xFF
             seed[3] = (c >> 24) & 0xFF
 
-        self.value = seed
+            c = seed[0] & 0xFF
+            c |= (seed[1] << 8) & 0xFF00
+            c |= (seed[2] << 16) & 0xFF0000
+            c |= (seed[3] << 24) & 0xFF000000
+
+        self.value = c

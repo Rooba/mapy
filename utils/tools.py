@@ -7,8 +7,8 @@ def splitNumber (num):
         num >>= 8
     return lst[::-1]
 
-def spacePacket(packet):
-    return ' '.join([packet[i:i+2] for i in range(0, len(packet), 2)])
+def to_string(bytes_):
+    return ' '.join([bytes_.hex()[i:i+2].upper() for i in range(0, len(bytes_.hex()), 2)])
 
 async def wakeup():
     while True:

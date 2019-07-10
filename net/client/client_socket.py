@@ -7,6 +7,7 @@ from asyncio import create_task, Lock, get_event_loop
 from common.constants import VERSION, SUB_VERSION, LOCALE
 from net.packets.crypto import MapleCryptograph, MapleIV, MapleAes, shanda
 from net.packets.packet import Packet
+from utils import to_string
 
 class ClientSocket:
     def __init__(self, socket):
@@ -16,8 +17,6 @@ class ClientSocket:
         self.recieve_size = 16384
         self.m_riv = None
         self.m_siv = None
-
-        # create_task(self.listen_packets())
     
     @property
     def identifier(self):
@@ -30,20 +29,14 @@ class ClientSocket:
         packet_length = len(out_packet)
         packet = bytearray(out_packet.getvalue())
 
-        buf = packet
-        # print(buf)
+        buf = packet[:]
 
-        final_length = len(packet) + 4
+        final_length = packet_length + 4
         final = bytearray(final_length)
-
         final[0:4] = MapleAes.get_header(packet, self.m_siv, packet_length, VERSION)
-        # final[4:] = packet
 
-        buf = shanda.encrypt_transform(buf)
-
-        print(' '.join([buf.hex()[i:i+2] for i in range(0, len(buf.hex()), 2)]))
-
-        # buf = MapleAes.transform(buf, self.m_siv)
+        encrypted = shanda.encrypt_transform(buf)
+        buf = MapleAes.transform(encrypted, self.m_siv)
 
         final[4:] = buf
 
@@ -56,24 +49,12 @@ class ClientSocket:
         await self._loop.sock_sendall(self._socket, packet.getvalue())
 
     def manipulate_buffer(self, buffer):
-
         buf = bytearray(buffer)[4:]
 
         buf = MapleAes.transform(buf, self.m_riv)
         buf = shanda.decrypt_transform(buf)
 
         return buf
-
-    def check_header(self, header):
-        header = (
-                  header >> 24 & 0xFF,
-                  header >> 16 & 0xFF
-                  )
-        first = (header[0] ^ int(self.m_riv) >> 16) & 0xFF
-        second = (VERSION >> 8) & 0xFF
-        third = (header[1] ^ int(self.m_riv) >> 24) & 0xFF
-        fourth = VERSION & 0xFF
-        return first == second and third == fourth
 
     def get_packet_length(self, headerint):
         packetlength = (headerint >> 16) ^ (headerint & 0xFFFF)

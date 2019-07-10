@@ -1,2 +1,2 @@
-from .tools import spacePacket
+from .tools import to_string
 from .cpacket import CPacket

@@ -1,8 +1,7 @@
-import binascii
 from enum import Enum
 from io import BytesIO
 
-from utils.tools import spacePacket
+from utils.tools import to_string
 
 class ByteBuffer(BytesIO):
     def encode_byte(self, byte):
@@ -76,7 +75,7 @@ class Packet(ByteBuffer):
         return self.getvalue()
 
     def to_string(self):
-        return ' '.join([self.getvalue().hex()[i:i+2] for i in range(0, len(self.getvalue().hex()), 2)])
+        return to_string(self.getvalue())
 
     def __len__(self):
         return len(self.getvalue())
