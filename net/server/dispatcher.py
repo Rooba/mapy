@@ -1,4 +1,7 @@
 from asyncio import create_task
+import logging
+
+log = logging.getLogger(__name__)
 
 class Dispatcher:
     def __init__(self, parent):
@@ -20,7 +23,7 @@ class Dispatcher:
                 raise AttributeError
 
         except AttributeError:
-            print(f"Unhandled event in {self.parent} : {op_code}")
+            log.debug(f"Unhandled event in {self.parent} : {op_code}")
 
         else:
             self.parent._loop.create_task(self._run_event(coro, client, packet))

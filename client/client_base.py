@@ -14,17 +14,13 @@ class ClientBase:
     def __init__(self, parent, socket):
         self.m_socket = socket
         self._parent = parent
-        self.logged_in = False
         self._port = None
 
-        self._server_id = None
-        self._channel_id = None
-
     async def initialize(self):
-
+        
         if not isinstance(self._parent, server.CenterServer):
-            self.m_socket.m_siv = MapleIV(randint(0, 2**31-1))
-            self.m_socket.m_riv = MapleIV(randint(0, 2**31-1))
+            self.m_socket.m_siv = MapleIV(100)
+            self.m_socket.m_riv = MapleIV(50)
 
             with Packet(op_code=0x0E) as packet:
                 packet.encode_short(VERSION)
@@ -35,19 +31,19 @@ class ClientBase:
 
                 await self.send_packet_raw(packet)
 
-        self._parent._loop.create_task(self.recieve())
+        self._parent._loop.create_task(self.receive())
 
-    async def recieve(self):
+    async def receive(self):
         while self._parent.is_alive:
-            m_recvBuffer = await self.sock_recv()
+            m_recv_buffer = await self.sock_recv()
 
             if self.m_socket.m_riv:
-                m_recvBuffer = self.manipulate_buffer(m_recvBuffer)
+                m_recv_buffer = self.manipulate_buffer(m_recv_buffer)
 
-            self.dispatch(Packet(m_recvBuffer, op_codes=self._parent.__opcodes__))
+            self.dispatch(Packet(m_recv_buffer, op_codes=self._parent.__opcodes__))
 
     def dispatch(self, packet):
-        self._parent._dispatcher.push(self, packet)
+        self._parent.dispatcher.push(self, packet)
 
     async def sock_recv(self):
         return await self.m_socket.sock_recv()
@@ -55,29 +51,13 @@ class ClientBase:
     async def send_packet(self, packet):
         op_code = packet.op_code
 
-        print(f"Sent : [{op_code.name}] {packet.to_string()}")
+        log.debug(f"Sent : [{op_code.name}] {packet.to_string()}")
 
         await self.m_socket.send_packet(packet)
 
     async def send_packet_raw(self, packet):
-        print(f"Sent : [{packet.op_code}] {packet.to_string()}")
+        log.debug(f"Sent : [{packet.op_code}] {packet.to_string()}")
         await self.m_socket.send_packet_raw(packet)
 
     def manipulate_buffer(self, buffer):
         return self.m_socket.manipulate_buffer(buffer)
-
-    @property
-    def server_id(self):
-        return self._server_id
-    
-    @server_id.setter
-    def server_id(self, value):
-        self._server_id = value
-    
-    @property
-    def channel_id(self):
-        return self._channel_id
-
-    @channel_id.setter
-    def channel_id(self, value):
-        self._channel_id = value

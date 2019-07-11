@@ -15,15 +15,13 @@ class WvsGame(ServerBase):
 
     __opcodes__ = CRecvOps
 
-    def __init__(self, loop, security_key=None):
+    def __init__(self, loop=None, security_key=None):
         self._loop = loop if loop is not None else asyncio.get_event_loop()
-
         self._port = None
 
         super().__init__(self._port, 'GameServer', self._loop)
 
         self._ready = asyncio.Event(loop = self._loop)
-
         self._world_id = None
         self._world_name = ""
         self._ticker_message = ""

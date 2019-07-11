@@ -1,12 +1,10 @@
-from net.packets.opcodes import CSendOps
-
 HOST_IP = "127.0.0.1"
 CENTER_PORT = 8383
 LOGIN_PORT = 8484
 GAME_PORT = 8585
 SHOP_PORT = 8787
 
-SECRET_KEY = 'Super Secret Key -- !'
+CENTER_KEY = 'Super Secret Key -- !'
 
 WORLD_COUNT = 1
 CHANNEL_COUNT = 1
@@ -35,10 +33,3 @@ DEFAULT_TICKER = "Welcome"
 ALLOW_MULTI_LEVELING = False
 DEFAULT_CREATION_SLOTS = 3
 DISABLE_CHARACTER_CREATION = False
-
-
-def filter_send_ops(send_op):
-    if not LOG_PACKETS:
-        return False
-    
-    # if send_op in [opcodes.]

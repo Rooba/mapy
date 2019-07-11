@@ -38,6 +38,46 @@ class CPacket:
         return packet
     
     @staticmethod
+    def world_information(world):
+        packet = packets.Packet(op_code=CSendOps.LP_WorldInformation)
+        packet.encode_short(15)
+        packet.encode_string("Kastia")
+        packet.encode_byte(0)
+        packet.encode_string("Henlo Friends")
+        packet.encode_short(100)
+        packet.encode_short(100)
+        packet.encode_byte(0)
+        
+        packet.encode_byte(1)
+
+        for i in range(1):
+            packet.encode_string(f"Kastia-{i}")
+            packet.encode_int(200)
+            packet.encode_byte(1)
+            packet.encode_byte(1)
+            packet.encode_byte(0)
+        
+        packet.encode_short(1)
+
+        packet.encode_short(130)
+        packet.encode_short(300)
+        packet.encode_string("KERNEL BIG       GAY?")
+
+        return packet
+
+    @staticmethod
+    def end_world_information():
+        packet = packets.Packet(op_code=CSendOps.LP_WorldInformation)
+        packet.encode_byte(0xFF)
+        return packet
+    
+    @staticmethod
+    def latest_connected_world(world):
+        packet = packets.Packet(op_code=CSendOps.LP_LatestConnectedWorld)
+        packet.encode_int(15)
+        return packet
+
+    @staticmethod
     def check_duplicated_id_result(name, is_available):
         packet = packets.Packet(op_code=CSendOps.LP_CheckDuplicatedIDResult)
         packet.encode_string(name)

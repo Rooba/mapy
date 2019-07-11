@@ -2,7 +2,6 @@ import inspect
 
 from asyncio import get_event_loop, create_task, Event
 import logging
-from typing import List
 
 log = logging.getLogger(__name__)
 
@@ -11,6 +10,7 @@ from net.client import ClientSocket
 from net.packets.packet import PacketHandler
 from net.server import Dispatcher, ClientListener
 from utils.tools import wakeup
+from web import HTTPClient
 
 class ServerBase:
     """Server base for center, channel, and login servers
@@ -32,9 +32,9 @@ class ServerBase:
         self._center = None
         self._is_alive = False
         self._clients = []
-        self._dispatcher = Dispatcher(self)
         self._packet_handlers = []
-
+        self._dispatcher = Dispatcher(self)
+        self._api = HTTPClient(loop=self._loop)
         self.add_packet_handlers()
         self._loop.create_task(wakeup())
         
@@ -92,6 +92,10 @@ class ServerBase:
 
     def listen(self):
         return self._acceptor._listen()
+
+    @property
+    def dispatcher(self):
+        return self._dispatcher
 
     @property
     def is_alive(self):

@@ -7,7 +7,7 @@ from common.enum import ServerType, ServerRegistrationResponse
 from client import WvsCenterClient
 from net.packets.packet import packet_handler, Packet
 from net.packets.opcodes import InterOps
-from . import ServerBase
+from server import ServerBase
 from server._wvs_center import WvsWorld, WorldManager
 
 
@@ -32,12 +32,12 @@ class CenterServer(ServerBase):
 
     __opcodes__ = InterOps
 
-    def __init__(self, loop=None, security_key=None):
+    def __init__(self, loop=None):
         super().__init__(constants.CENTER_PORT, 'CenterServer', loop)
 
         self._loop.create_task(self.listen())
 
-        self._security_key = security_key
+        self._security_key = constants.CENTER_KEY
         self._login = None
         self._worlds = WorldManager(self, constants.WORLD_COUNT)
         self._shop = None

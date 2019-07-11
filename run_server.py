@@ -1,10 +1,11 @@
-import asyncio
+from asyncio import get_event_loop
 from sys import argv
-# import logging
+import logging
 
-# logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG)
+loop = get_event_loop()
+# loop.set_debug(True)
 
-from common.constants import SECRET_KEY
 from server import CenterServer, WvsLogin, WvsGame
 
 if len(argv) > 1:
@@ -22,10 +23,7 @@ cls = {
 if not cls:
     exit("Decalre server: run center|login")
 
-loop = asyncio.get_event_loop()
-# loop.set_debug(True)
-
-Server = cls(loop, SECRET_KEY)
+Server = cls(loop)
 
 try:
     loop.run_forever()
@@ -34,7 +32,7 @@ except KeyboardInterrupt:
     print(f"Shutting down {Server.name}")
 
 finally:
-    for task in asyncio.Task.all_tasks():
+    for task in loop.all_tasks():
         task.cancel()
 
     loop.run_until_complete(loop.shutdown_asyncgens())

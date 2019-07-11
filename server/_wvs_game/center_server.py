@@ -1,7 +1,7 @@
 import asyncio
 from socket import socket, SOCK_STREAM, AF_INET
 
-from common.constants import SECRET_KEY, WORLD_COUNT
+from common.constants import CENTER_KEY, WORLD_COUNT
 from common.enum import ServerType
 from net.packets.packet import Packet
 from net.packets.opcodes import InterOps
@@ -25,7 +25,7 @@ class CenterServer:
 
         with Packet(op_code=InterOps.RegistrationRequest) as out_packet:
             out_packet.encode_byte(ServerType.channel)
-            out_packet.encode_string(SECRET_KEY)
+            out_packet.encode_string(CENTER_KEY)
             
             await self.send_packet_raw(out_packet)
 
@@ -43,7 +43,7 @@ class CenterServer:
         return await self._loop.sock_recv(self._socket, 16384)
 
     def dispatch(self, packet):
-        self._parent._dispatcher.push(self._socket, packet)
+        self._parent.dispatcher.push(self._socket, packet)
 
     async def send_packet_raw(self, packet):
         await self._loop.sock_sendall(self._socket, packet.getvalue())

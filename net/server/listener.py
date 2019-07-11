@@ -20,7 +20,6 @@ class ClientListener(object):
     
     def __init__(self, parent, connection: Tuple[str, int]):
         self._connection = connection
-
         self._parent = parent
 
         self._loop = parent._loop if parent._loop else get_event_loop()
@@ -32,13 +31,6 @@ class ClientListener(object):
 
     def is_alive(self):
         return self._parent.is_alive
-    
-    # def broadcast(self, clients, message):
-    #     '''
-    #     Send Message to list of client objects
-    #     '''
-    #     for client in clients:
-    #         client.send(message)
 
     async def _listen(self):
         print(f"Listening on port {self._connection[1]}")
