@@ -6,11 +6,11 @@ log = logging.getLogger(__name__)
 class Dispatcher:
     def __init__(self, parent):
         self.parent = parent
-    
+
     def push(self, client, packet):
         op_code = packet.op_code
 
-        print(f"Recieved : [{op_code}] [{packet.to_string()}]")
+        log.debug("Recieved : [%s] [%s]", op_code, packet.to_string())
 
         try:
             coro = None
@@ -18,6 +18,7 @@ class Dispatcher:
             for packet_handler in self.parent._packet_handlers:
                 if packet_handler.op_code == op_code:
                     coro = packet_handler.callback
+                    break
             
             if not coro:
                 raise AttributeError

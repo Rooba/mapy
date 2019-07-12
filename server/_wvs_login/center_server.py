@@ -4,7 +4,6 @@ import logging
 
 log = logging.getLogger(__name__)
 
-from common.constants import CENTER_KEY
 from common.enum import ServerType
 from net.packets.packet import Packet
 from net.packets.opcodes import InterOps
@@ -17,6 +16,7 @@ class CenterServer:
         self._loop = parent._loop
         self._socket = socket(AF_INET, SOCK_STREAM)
         self._socket.setblocking(0)
+        self.is_alive = True
 
         self._loop.create_task(self.create_connection())
 
@@ -27,13 +27,12 @@ class CenterServer:
 
         with Packet(op_code=InterOps.RegistrationRequest) as out_packet:
             out_packet.encode_byte(ServerType.login)
-            out_packet.encode_string(CENTER_KEY)
+            out_packet.encode_string(self._parent._security_key)
             out_packet.encode_byte(len(self._parent._worlds))
             
             for world in self._parent._worlds:
                 out_packet.encode_byte(world.id)
                 out_packet.encode_string(world.name)
-                out_packet.encode_short(world.port)
                 out_packet.encode_byte(1)
                 out_packet.encode_string(world.ticker_message)
                 out_packet.encode_byte(world._allow_multi_leveling)
@@ -46,8 +45,12 @@ class CenterServer:
             await self.send_packet_raw(out_packet)
 
     async def receive(self):
-        while self._parent.is_alive:
+        while self.is_alive:
             m_recv_buffer = await self.sock_recv()
+
+            if not m_recv_buffer:
+                self.is_alive = False
+                continue
 
             self.dispatch(Packet(data=m_recv_buffer, op_codes=InterOps))
 

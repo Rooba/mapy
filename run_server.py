@@ -1,18 +1,18 @@
-from asyncio import get_event_loop
+from asyncio import get_event_loop, Task
 from sys import argv
 import logging
+
+from server import CenterServer, WvsLogin, WvsGame
 
 logging.basicConfig(level=logging.DEBUG)
 loop = get_event_loop()
 # loop.set_debug(True)
 
-from server import CenterServer, WvsLogin, WvsGame
-
 if len(argv) > 1:
     server_option = argv[1]
 
 else:
-    server_option = input("Which Server do we start? : \n[center|login|game] ")
+    server_option = input("Which Server do we start? : \n [ center | login | game ] ")
 
 cls = {
     'center': CenterServer,
@@ -21,7 +21,7 @@ cls = {
 }.get(server_option)
 
 if not cls:
-    exit("Decalre server: run center|login")
+    exit("Decalre server: run [ center | login | game ]")
 
 Server = cls(loop)
 
@@ -29,10 +29,10 @@ try:
     loop.run_forever()
 
 except KeyboardInterrupt:
-    print(f"Shutting down {Server.name}")
+    print("Shutting down %s", Server.name)
 
 finally:
-    for task in loop.all_tasks():
+    for task in Task.all_tasks():
         task.cancel()
 
     loop.run_until_complete(loop.shutdown_asyncgens())

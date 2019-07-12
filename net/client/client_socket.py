@@ -19,6 +19,9 @@ class ClientSocket:
     @property
     def identifier(self):
         return self._socket.getpeername()
+    
+    def close(self):
+        return self._socket.close()
 
     async def sock_recv(self):
         return await self._loop.sock_recv(self._socket, self.recieve_size)

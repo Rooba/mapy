@@ -56,7 +56,7 @@ class WvsGame(ServerBase):
             self.meso_rate = packet.decode_int()
             self.drop_rate = packet.decode_int()
 
-            log.debug("Registered Game Server [World Name: %s] [World ID: %s] [Channel ID: %s]", 
+            log.info("Registered Game Server [World Name: %s] [World ID: %s] [Channel ID: %s]", 
                 self.world_name, self.world_id, self.channel_id)
 
             self.start_acceptor(self._port)

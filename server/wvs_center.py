@@ -8,9 +8,7 @@ from client import WvsCenterClient
 from net.packets.packet import packet_handler, Packet
 from net.packets.opcodes import InterOps
 from server import ServerBase
-from server._wvs_center import WvsWorld, WorldManager
-
-
+from server._wvs_center import World, WorldManager
 
 class CenterServer(ServerBase):
     """Server connection listener for incoming client socket connections
@@ -35,15 +33,25 @@ class CenterServer(ServerBase):
     def __init__(self, loop=None):
         super().__init__(constants.CENTER_PORT, 'CenterServer', loop)
 
-        self._loop.create_task(self.listen())
-
         self._security_key = constants.CENTER_KEY
+        self._loop.create_task(self.listen())
         self._login = None
         self._worlds = WorldManager(self, constants.WORLD_COUNT)
         self._shop = None
 
     async def client_connect(self, client):
         return WvsCenterClient(self, client)
+    
+    async def on_client_disconnect(self, client):
+        if client == self._login:
+            self._login = None
+
+            # for world in self._worlds:
+                # for channel in world.channels:
+                    # Tell WvsGame that login server went down
+                    # pass
+
+        super().on_client_disconnect(client)
 
     @packet_handler(InterOps.RegistrationRequest)
     async def registration_request(self, client, packet):
@@ -61,7 +69,7 @@ class CenterServer(ServerBase):
                 out_packet.encode_byte(ServerRegistrationResponse.InvalidCode)
                 return await client.send_packet_raw(out_packet)
 
-            valid_world = await self._worlds.get_open()
+            valid_world = self._worlds.get_open()
 
             if server_type == ServerType.login and self._login or \
                 server_type == ServerType.channel and not valid_world or \
@@ -105,8 +113,10 @@ class CenterServer(ServerBase):
             count = packet.decode_byte()
 
             for _ in range(count):
-                if self._worlds.registered_worlds <= count:
-                    self._worlds.append(WvsWorld.from_packet(self, packet))
+                world_id = packet.decode_byte()
+
+                if not self._worlds.get(world_id):
+                    self._worlds.append(World(world_id).from_packet(packet))
             
             for world in self._worlds:
                 for channel in world.channels:

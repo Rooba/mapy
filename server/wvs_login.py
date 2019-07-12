@@ -4,7 +4,7 @@ import logging
 log = logging.getLogger(__name__)
 
 from common.constants import LOGIN_PORT, CENTER_PORT, HOST_IP, AUTO_REGISDTER, MAX_CHARACTERS,\
-                            REQUEST_PIC, REQUEST_PIN, REQUIRE_STAFF_IP, WORLD_COUNT, AUTO_LOGIN
+                            REQUEST_PIC, REQUEST_PIN, REQUIRE_STAFF_IP, WORLD_COUNT, AUTO_LOGIN, CENTER_KEY
 
 from common.enum import ServerRegistrationResponse
 
@@ -20,11 +20,12 @@ from server.server_base import ServerBase
 class WvsLogin(ServerBase):
     __opcodes__ = CRecvOps
 
-    def __init__(self, loop=None, security_key=None):
+    def __init__(self, loop=None):
         loop = loop if loop is not None else asyncio.get_event_loop()
-
+        
         super().__init__(LOGIN_PORT, 'LoginServer', loop)
-
+        
+        self._security_key = CENTER_KEY
         self._worlds = []
         self._auto_register = AUTO_REGISDTER
         self._request_pin = REQUEST_PIN
@@ -130,8 +131,6 @@ class WvsLogin(ServerBase):
 
         password = packet.decode_string()
         username = packet.decode_string()
-
-        print(username, password)
 
         response = await client.login(username, password)
 

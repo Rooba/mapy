@@ -31,16 +31,26 @@ class ClientBase:
 
                 await self.send_packet_raw(packet)
 
-        self._parent._loop.create_task(self.receive())
+        self._receive_task = self._parent._loop.create_task(self.receive())
 
     async def receive(self):
-        while self._parent.is_alive:
-            m_recv_buffer = await self.sock_recv()
+        self._is_alive = True
 
-            if self.m_socket.m_riv:
-                m_recv_buffer = self.manipulate_buffer(m_recv_buffer)
+        try:
+            while self._is_alive:
+                m_recv_buffer = await self.sock_recv()
 
-            self.dispatch(Packet(m_recv_buffer, op_codes=self._parent.__opcodes__))
+                if not m_recv_buffer:
+                    await self._parent.on_client_disconnect(self)
+                    return
+
+                if self.m_socket.m_riv:
+                    m_recv_buffer = self.manipulate_buffer(m_recv_buffer)
+
+                self.dispatch(Packet(m_recv_buffer, op_codes=self._parent.__opcodes__))
+
+        except ConnectionResetError:
+            await self._parent.on_client_disconnect(self)
 
     def dispatch(self, packet):
         self._parent.dispatcher.push(self, packet)

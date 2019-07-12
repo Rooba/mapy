@@ -38,14 +38,10 @@ class ServerBase:
         self.add_packet_handlers()
         self._loop.create_task(wakeup())
         
-        try:
-            if port:
-                self._acceptor = ClientListener(self, (HOST_IP, port))
-                self._ready.set()
+        if port:
+            self._acceptor = ClientListener(self, (HOST_IP, port))
+            self._ready.set()
 
-        except Exception as e:
-            self.close(e)
-        
         self.is_alive = True
 
     def start_acceptor(self, port):
@@ -59,17 +55,11 @@ class ServerBase:
         log.debug("[%s] Acepted %s", self._name, client.identifier)
 
         self._clients.append(maple_client)
+        await maple_client.initialize()
 
-        try:
-            await maple_client.initialize()
-
-        except IOError:
-            log.debug("[%s] Client Disconnect %s", self.name, client.identifier)
-
-            self._clients.remove(self)
-        finally:
-            # self._clients.remove(self)
-            pass
+    async def on_client_disconnect(self, client):
+        self._clients.remove(client)
+        client._receive_task.cancel()
 
     def add_packet_handlers(self):
         members = inspect.getmembers(self)
@@ -85,10 +75,6 @@ class ServerBase:
         Waits until the GameServer has started listening for clients.
         """
         await self._ready.wait()
-
-    def close(self, reason = "unknown"):
-        print(f"{self.name} shutdown due to : {reason}")
-        self.is_alive = False
 
     def listen(self):
         return self._acceptor._listen()
