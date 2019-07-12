@@ -16,14 +16,11 @@ class CenterServer:
         self._loop = parent._loop
         self._socket = socket(AF_INET, SOCK_STREAM)
         self._socket.setblocking(0)
-        self.is_alive = True
 
-        self._loop.create_task(self.create_connection())
+        self.is_alive = True
 
     async def create_connection(self):
         await self._loop.sock_connect(self._socket, (self._host, self._port))
-
-        self._loop.create_task(self.receive())
 
         with Packet(op_code=InterOps.RegistrationRequest) as out_packet:
             out_packet.encode_byte(ServerType.login)
@@ -44,13 +41,11 @@ class CenterServer:
 
             await self.send_packet_raw(out_packet)
 
+        await self.receive()
+
     async def receive(self):
         while self.is_alive:
             m_recv_buffer = await self.sock_recv()
-
-            if not m_recv_buffer:
-                self.is_alive = False
-                continue
 
             self.dispatch(Packet(data=m_recv_buffer, op_codes=InterOps))
 

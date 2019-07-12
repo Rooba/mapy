@@ -1,11 +1,11 @@
+from asyncio import get_event_loop, create_task, Event, ensure_future, Task, wait_for
 import inspect
-
-from asyncio import get_event_loop, create_task, Event
 import logging
+import signal
 
 log = logging.getLogger(__name__)
 
-from common.constants import HOST_IP
+from common.constants import HOST_IP, CENTER_PORT
 from net.client import ClientSocket
 from net.packets.packet import PacketHandler
 from net.server import Dispatcher, ClientListener
@@ -24,8 +24,8 @@ class ServerBase:
 
     """
     
-    def __init__(self, port, name = "", loop = None):
-        self._loop = get_event_loop() if loop is None else loop
+    def __init__(self, name = ""):
+        self._loop = get_event_loop()
 
         self._ready = Event(loop=self._loop)
         self._name = name
@@ -34,15 +34,62 @@ class ServerBase:
         self._clients = []
         self._packet_handlers = []
         self._dispatcher = Dispatcher(self)
-        self._api = HTTPClient(loop=self._loop)
         self.add_packet_handlers()
-        self._loop.create_task(wakeup())
+
+    def run(self, port=None, listen=False):
+        loop = self._loop
+
+        # try:
+        #     loop.add_signal_handler(signal.SIGINT, lambda: loop.stop())
+        #     loop.add_signal_handler(signal.SIGTERM, lambda: loop.stop())
+        # except NotImplementedError:
+        #     pass
+
+        # async def runner():
+        #     try:
+        #         await self.start(port, listen)
+        #     finally:
+        #         pass
+
+        # def stop_loop_on_completion(f):
+        #     self.close()
+        #     loop.stop()
+
+        # future = ensure_future(self.start(port, listen), loop=loop)
+        # future.add_done_callback(stop_loop_on_completion)
+
+        loop.create_task(self.start(port, listen))
         
+        try:
+            loop.run_forever()
+
+        except KeyboardInterrupt:
+            log.info('Received signal to terminate event loop.')
+
+        finally:
+            log.info('[%s] Closed' % self.name)
+
+
+    async def start(self, port, listen):
+        self._api = HTTPClient(loop=self._loop)
+        self.is_alive = True
+
+        if self._center:
+            self._center = self._center(self, HOST_IP, CENTER_PORT)
+            self._loop.create_task(self._center.create_connection())
+
         if port:
             self._acceptor = ClientListener(self, (HOST_IP, port))
-            self._ready.set()
 
-        self.is_alive = True
+        if listen:
+            self._ready.set()
+            self._loop.create_task(self.listen())
+        
+        self._loop.create_task(wakeup())
+
+    def close(self):
+        for task in Task.all_tasks():
+            task.cancel()
 
     def start_acceptor(self, port):
         self._acceptor = ClientListener(self, (HOST_IP, port))
@@ -52,14 +99,16 @@ class ServerBase:
         client = ClientSocket(socket)
         maple_client = await getattr(self, 'client_connect')(client)
 
-        log.debug("[%s] Acepted %s", self._name, client.identifier)
+        log.info("[%s] Acepted %s", self._name, client.identifier)
 
         self._clients.append(maple_client)
         await maple_client.initialize()
 
     async def on_client_disconnect(self, client):
         self._clients.remove(client)
-        client._receive_task.cancel()
+        await client._receive_task.cancel()
+        
+        log.info("[%s] Client Disconnect", self._name)
 
     def add_packet_handlers(self):
         members = inspect.getmembers(self)

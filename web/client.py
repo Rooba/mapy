@@ -1,5 +1,4 @@
 from aiohttp import ClientSession
-from asyncio import get_event_loop
 
 class Route:
     def __init__(self, method, route, data=None, params=None):
@@ -10,13 +9,12 @@ class Route:
 
 class HTTPClient:
     def __init__(self, loop = None):
-        self._loop = loop if loop else get_event_loop()
-        self._session = ClientSession(loop = self._loop)
+        self._loop = loop
         self._host = "https://map.hypermine.com:54545"
     
     async def request(self, route):
+        session = ClientSession(loop = self._loop)
         kwargs = {}
-
         url = self._host + route._route
 
         if route._data:
@@ -25,7 +23,7 @@ class HTTPClient:
         if route._params:
             kwargs['params'] = route._params
 
-        r = await self._session.request(route._method, url, **kwargs)
+        r = await session.request(route._method, url, **kwargs)
 
         try:
             if r.status is 200:

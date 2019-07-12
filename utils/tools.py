@@ -12,4 +12,4 @@ def to_string(bytes_):
 
 async def wakeup():
     while True:
-        await sleep(1)
+        await sleep(.01)

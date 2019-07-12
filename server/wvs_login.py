@@ -21,9 +21,10 @@ class WvsLogin(ServerBase):
     __opcodes__ = CRecvOps
 
     def __init__(self, loop=None):
-        loop = loop if loop is not None else asyncio.get_event_loop()
         
-        super().__init__(LOGIN_PORT, 'LoginServer', loop)
+        super().__init__('LoginServer')
+
+        self._center = CenterServer
         
         self._security_key = CENTER_KEY
         self._worlds = []
@@ -34,10 +35,12 @@ class WvsLogin(ServerBase):
         self._max_characters = MAX_CHARACTERS
         self._login_pool = []
 
-        for i in range(WORLD_COUNT):
-            self._worlds.append(World(i))
+        # for i in range(WORLD_COUNT):
+        #     self._worlds.append(World(i + 1))
+        self._worlds.append(World(15))
 
-        self._center = CenterServer(self, HOST_IP, CENTER_PORT)
+    def run(self):
+        super().run(LOGIN_PORT)
 
     ##
     # InterOps 
@@ -50,7 +53,7 @@ class WvsLogin(ServerBase):
         if response == ServerRegistrationResponse.Valid:
             self._loop.create_task(self.listen())
 
-            log.debug("Registered Login Server")
+            log.info("Registered Login Server")
         
         else:
             log.error("Failed to register Login Server [Reason: %s]", response.name)

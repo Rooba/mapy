@@ -31,10 +31,8 @@ class CenterServer(ServerBase):
     __opcodes__ = InterOps
 
     def __init__(self, loop=None):
-        super().__init__(constants.CENTER_PORT, 'CenterServer', loop)
-
+        super().__init__('CenterServer')
         self._security_key = constants.CENTER_KEY
-        self._loop.create_task(self.listen())
         self._login = None
         self._worlds = WorldManager(self, constants.WORLD_COUNT)
         self._shop = None
@@ -51,7 +49,10 @@ class CenterServer(ServerBase):
                     # Tell WvsGame that login server went down
                     # pass
 
-        super().on_client_disconnect(client)
+        await super().on_client_disconnect(client)
+
+    def run(self):
+        super().run(constants.CENTER_PORT, True)
 
     @packet_handler(InterOps.RegistrationRequest)
     async def registration_request(self, client, packet):
@@ -129,7 +130,7 @@ class CenterServer(ServerBase):
 
                         await self._login.send_packet_raw(out_packet)
             
-            log.debug("Registered Login Server on %s", self._login.port)
+            log.info("Registered Login Server on %s", self._login.port)
         
         elif client.type == ServerType.channel:
             with Packet(op_code=InterOps.UpdateChannel) as out_packet:

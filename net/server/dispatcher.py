@@ -10,7 +10,7 @@ class Dispatcher:
     def push(self, client, packet):
         op_code = packet.op_code
 
-        log.debug("Recieved : [%s] [%s]", op_code, packet.to_string())
+        log.info("Recieved : [%s] [%s]", op_code, packet.to_string())
 
         try:
             coro = None
@@ -24,7 +24,7 @@ class Dispatcher:
                 raise AttributeError
 
         except AttributeError:
-            log.debug(f"Unhandled event in {self.parent} : {op_code}")
+            log.info(f"Unhandled event in {self.parent} : {op_code}")
 
         else:
             self.parent._loop.create_task(self._run_event(coro, client, packet))
