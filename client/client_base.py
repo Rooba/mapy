@@ -1,14 +1,14 @@
+import server
+from net.packets.packet import Packet
+from net.packets.crypto import MapleIV
+from net.client.client_socket import ClientSocket
+from common.constants import VERSION, SUB_VERSION, LOCALE
 from asyncio import create_task, Lock, get_event_loop
 from random import randint
 import logging
 
 log = logging.getLogger(__name__)
 
-from common.constants import VERSION, SUB_VERSION, LOCALE
-from net.client.client_socket import ClientSocket
-from net.packets.crypto import MapleIV
-from net.packets.packet import Packet
-import server
 
 class ClientBase:
     def __init__(self, parent, socket):
@@ -17,12 +17,12 @@ class ClientBase:
         self._port = None
 
     async def initialize(self):
-        
+
         if not isinstance(self._parent, server.CenterServer):
             self._receive_task = self._parent._loop.create_task(self.receive())
 
-            self.m_socket.m_siv = MapleIV(100)
-            self.m_socket.m_riv = MapleIV(50)
+            self.m_socket.m_siv = MapleIV(randint(0, 2**31-1))
+            self.m_socket.m_riv = MapleIV(randint(0, 2**31-1))
 
             with Packet(op_code=0x0E) as packet:
                 packet.encode_short(VERSION)
@@ -32,7 +32,7 @@ class ClientBase:
                 packet.encode_byte(LOCALE)
 
                 await self.send_packet_raw(packet)
-        
+
         self._receive_task = self._parent._loop.create_task(self.receive())
 
     async def receive(self):
@@ -49,7 +49,8 @@ class ClientBase:
                 if self.m_socket.m_riv:
                     m_recv_buffer = self.manipulate_buffer(m_recv_buffer)
 
-                self.dispatch(Packet(m_recv_buffer, op_codes=self._parent.__opcodes__))
+                self.dispatch(
+                    Packet(m_recv_buffer, op_codes=self._parent.__opcodes__))
 
         except ConnectionResetError:
             await self._parent.on_client_disconnect(self)
@@ -61,15 +62,17 @@ class ClientBase:
         return await self.m_socket.sock_recv()
 
     async def send_packet(self, packet):
-        op_code = packet.op_code
-
-        log.info(f"Sent : [{op_code.name}] {packet.to_string()}")
+        log.info("Sent : [%s] %s", packet.op_code.name, packet.to_string())
 
         await self.m_socket.send_packet(packet)
 
     async def send_packet_raw(self, packet):
-        log.info(f"Sent : [{packet.op_code}] {packet.to_string()}")
+        log.info("Sent : [%s] %s", packet.op_code.name, packet.to_string())
         await self.m_socket.send_packet_raw(packet)
 
     def manipulate_buffer(self, buffer):
         return self.m_socket.manipulate_buffer(buffer)
+
+    @property
+    def ip(self):
+        return self.m_socket.identifier[0]

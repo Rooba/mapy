@@ -11,7 +11,8 @@ if len(argv) > 1:
     server_option = argv[1]
 
 else:
-    server_option = input("Which Server do we start? : \n [ center | login | game ] ")
+    server_option = input(
+        "Which Server do we start? : \n [ center | login | game ] ")
 
 cls = {
     'center': CenterServer,

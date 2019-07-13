@@ -1,11 +1,12 @@
 from common.constants import CHANNEL_COUNT
 from . import WvsGameManager
 
+
 class World:
     def __init__(self, id=None, name=None, channels=None, channel_limit=None,
-                ticker_message="Default Message", allow_multi_leveling=False, exp_rate=1,
-                quest_exp=1, party_exp=1, meso_rate=1, drop_rate=1):
-                
+                 ticker_message="Default Message", allow_multi_leveling=False, exp_rate=1,
+                 quest_exp=1, party_exp=1, meso_rate=1, drop_rate=1):
+
         self._id = id
         self.name = name
         self._channels = WvsGameManager(self)
@@ -17,7 +18,7 @@ class World:
         self.party_exp = party_exp
         self.meso_rate = meso_rate
         self.drop_rate = drop_rate
-    
+
     def from_packet(self, packet):
         self.name = packet.decode_string()
         self.channel_limit = packet.decode_byte()

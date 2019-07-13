@@ -1,4 +1,8 @@
 from aiohttp import ClientSession
+import logging
+
+log = logging.getLogger(__name__)
+
 
 class Route:
     def __init__(self, method, route, data=None, params=None):
@@ -41,13 +45,13 @@ class HTTPClient:
             return None
         
         except Exception as e:
-            print(e)
+            log.info(e)
         
         finally:
             await r.release()
 
     async def is_username_taken(self, character_name):
-        response = await self.request(Route("GET", f"/characters/name/{character_name}"))
+        response = await self.request(Route("GET", "/characters/name/" + character_name))
 
         return response['resp']
 

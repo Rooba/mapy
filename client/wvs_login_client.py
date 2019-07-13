@@ -1,14 +1,15 @@
 from .client_base import ClientBase
 
+
 class WvsLoginClient(ClientBase):
     """LoginClient
 
     Parameters
     ----------
 
-    parent: `ServerBase`
+    parent: :class:`ServerBase`
         Parent server client is connecting to
-    socket: `socket`
+    socket: :class:`Socket`
         Socket holding client - server connection
     name: str
         Name identifying type of client
@@ -21,13 +22,13 @@ class WvsLoginClient(ClientBase):
         self.server_id = None
         self.channel_id = None
         self.logged_in = False
-    
+
     async def login(self, username, password):
         ret = await self._parent.login(self, username, password)
 
         if ret == 0:
             self.logged_in = True
-        
+
         return ret
 
     @property

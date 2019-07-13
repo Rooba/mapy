@@ -1,31 +1,29 @@
+from server.server_base import ServerBase
+from server._wvs_login import Channel, World, CenterServer
+from utils.cpacket import CPacket
+from net.packets.packet import packet_handler
+from net.packets import Packet
+from net.packets.opcodes import CRecvOps, InterOps, CSendOps
+from client.entities import Account
+from client import WvsLoginClient
+from common.enum import ServerRegistrationResponse
+from common.constants import LOGIN_PORT, CENTER_PORT, HOST_IP, AUTO_REGISDTER, MAX_CHARACTERS,\
+    REQUEST_PIC, REQUEST_PIN, REQUIRE_STAFF_IP, WORLD_COUNT, AUTO_LOGIN, CENTER_KEY
 import asyncio
 import logging
 
 log = logging.getLogger(__name__)
 
-from common.constants import LOGIN_PORT, CENTER_PORT, HOST_IP, AUTO_REGISDTER, MAX_CHARACTERS,\
-                            REQUEST_PIC, REQUEST_PIN, REQUIRE_STAFF_IP, WORLD_COUNT, AUTO_LOGIN, CENTER_KEY
-
-from common.enum import ServerRegistrationResponse
-
-from client import WvsLoginClient
-from client.entities import Account
-from net.packets.opcodes import CRecvOps, InterOps, CSendOps
-from net.packets import Packet
-from net.packets.packet import packet_handler
-from utils.cpacket import CPacket
-from server._wvs_login import Channel, World, CenterServer
-from server.server_base import ServerBase
 
 class WvsLogin(ServerBase):
     __opcodes__ = CRecvOps
 
     def __init__(self, loop=None):
-        
+
         super().__init__('LoginServer')
 
         self._center = CenterServer
-        
+
         self._security_key = CENTER_KEY
         self._worlds = []
         self._auto_register = AUTO_REGISDTER
@@ -43,23 +41,24 @@ class WvsLogin(ServerBase):
         super().run(LOGIN_PORT)
 
     ##
-    # InterOps 
+    # InterOps
     ##
 
     @packet_handler(InterOps.RegistrationResponse)
     async def registration_response(self, client, packet):
         response = ServerRegistrationResponse(packet.decode_byte())
-        
+
         if response == ServerRegistrationResponse.Valid:
             self._loop.create_task(self.listen())
 
             log.info("Registered Login Server")
-        
+
         else:
-            log.error("Failed to register Login Server [Reason: %s]", response.name)
+            log.error(
+                "Failed to register Login Server [Reason: %s]", response.name)
 
             self.is_alive = False
-    
+
     @packet_handler(InterOps.UpdateChannel)
     async def update_channel(self, client, packet):
         world_id = packet.decode_byte()
@@ -68,7 +67,7 @@ class WvsLogin(ServerBase):
 
         if add:
             world._channels.append(Channel(packet))
-        
+
         else:
             channel_id = packet.decode_byte()
             world._channels.pop(channel_id)
@@ -84,7 +83,7 @@ class WvsLogin(ServerBase):
     async def check_character_name(self, client, packet):
         # Don't need this?
         pass
-    
+
     async def is_name_taken(self, name):
         pass
 
@@ -110,7 +109,7 @@ class WvsLogin(ServerBase):
     @packet_handler(CRecvOps.CP_CreateSecurityHandle)
     async def create_secuirty_heandle(self, client, packet):
         if AUTO_LOGIN:
-            i_packet = Packet(op_code = CRecvOps.CP_CheckPassword)
+            i_packet = Packet(op_code=CRecvOps.CP_CheckPassword)
             i_packet.encode_string("admin")
             i_packet.encode_string("admin")
             i_packet.seek(2)
@@ -125,7 +124,7 @@ class WvsLogin(ServerBase):
 
     async def login(self, client, username, password):
         client.account = Account(id=1001, username=username, password=password)
-        #client.set_account(data)
+        # client.set_account(data)
 
         return 0
 
@@ -143,8 +142,6 @@ class WvsLogin(ServerBase):
     async def world_request(self, client, packet):
         for world in self._worlds:
             await client.send_packet(CPacket.world_information(world))
-        
+
         await client.send_packet(CPacket.end_world_information())
         await client.send_packet(CPacket.latest_connected_world(self._worlds[0]))
-    
-    

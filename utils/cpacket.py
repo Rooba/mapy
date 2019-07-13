@@ -41,7 +41,7 @@ class CPacket:
     def world_information(world):
         packet = packets.Packet(op_code=CSendOps.LP_WorldInformation)
         packet.encode_byte(world.id)
-        packet.encode_string(f"{world.name}")
+        packet.encode_string(world.name)
         packet.encode_byte(0)
         packet.encode_string("Henlo Friends")
         packet.encode_short(100)
@@ -51,7 +51,7 @@ class CPacket:
         packet.encode_byte(2)
 
         for i in range(2):
-            packet.encode_string(f"{world.name}-{i}")
+            packet.encode_string("%s-%s" % world.name, i)
             packet.encode_int(200)
             packet.encode_byte(world.id)
             packet.encode_byte(i)
@@ -59,9 +59,9 @@ class CPacket:
         
         packet.encode_short(0)
 
-        # packet.encode_short(130)
-        # packet.encode_short(300)
-        # packet.encode_string("KERNEL BIG       GAY?")
+        # packet.encode_short()
+        # packet.encode_short()
+        # packet.encode_string()
 
         return packet
 

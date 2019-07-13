@@ -7,6 +7,7 @@ from common.constants import VERSION, SUB_VERSION, LOCALE
 from net.packets.crypto import MapleIV, MapleAes, shanda
 from net.packets.packet import Packet
 
+
 class ClientSocket:
     def __init__(self, socket):
         self._loop = get_event_loop()
@@ -15,11 +16,11 @@ class ClientSocket:
         self.recieve_size = 16384
         self.m_riv = None
         self.m_siv = None
-    
+
     @property
     def identifier(self):
         return self._socket.getpeername()
-    
+
     def close(self):
         return self._socket.close()
 
@@ -34,7 +35,8 @@ class ClientSocket:
 
         final_length = packet_length + 4
         final = bytearray(final_length)
-        final[0:4] = MapleAes.get_header(packet, self.m_siv, packet_length, VERSION)
+        final[0:4] = MapleAes.get_header(
+            packet, self.m_siv, packet_length, VERSION)
 
         encrypted = shanda.encrypt_transform(buf)
         buf = MapleAes.transform(encrypted, self.m_siv)
@@ -59,5 +61,6 @@ class ClientSocket:
 
     def get_packet_length(self, headerint):
         packetlength = (headerint >> 16) ^ (headerint & 0xFFFF)
-        packetlength = ((packetlength << 8) & 0xFF00) | ((packetlength >> 8) & 0xFF)
-        return packetlength 
+        packetlength = ((packetlength << 8) & 0xFF00) | (
+            (packetlength >> 8) & 0xFF)
+        return packetlength
