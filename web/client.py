@@ -1,3 +1,5 @@
+from client.entities import CharacterEntry, Character
+
 from aiohttp import ClientSession
 import logging
 
@@ -14,9 +16,9 @@ class Route:
 class HTTPClient:
     def __init__(self, loop = None):
         self._loop = loop
-        self._host = "https://map.hypermine.com:54545"
+        self._host = "http://localhost:54545"
     
-    async def request(self, route):
+    async def request(self, route, content_type="json"):
         session = ClientSession(loop = self._loop)
         kwargs = {}
         url = self._host + route._route
@@ -31,10 +33,10 @@ class HTTPClient:
 
         try:
             if r.status is 200:
-                if r.headers['content-type'] == 'application/json':
+                if content_type == 'json':
                     data = await r.json()
 
-                elif r.headers['content-type'].startswith('image'):
+                elif content_type == 'image':
                     data = await r.read()
 
                 else:
@@ -49,9 +51,10 @@ class HTTPClient:
         
         finally:
             await r.release()
+            await session.close()
 
     async def is_username_taken(self, character_name):
-        response = await self.request(Route("GET", "/characters/name/" + character_name))
+        response = await self.request(Route("GET", "/characters/name" + character_name))
 
         return response['resp']
 
@@ -66,3 +69,8 @@ class HTTPClient:
         
         return response
 
+    async def get_characters(self, account_id):
+        response = await self.request(Route("GET", "/account/{account_id}/characters".format(account_id=account_id)))
+
+        # return [CharacterEntry.from_data(entry['stats'], entry['equipped']) for entry in response['characters']]
+        return [Character.from_data(**character) for character in response['characters']]

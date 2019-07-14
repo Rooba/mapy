@@ -123,7 +123,7 @@ class WvsLogin(ServerBase):
         await client.send_packet(CPacket.check_duplicated_id_result(username, is_available))
 
     async def login(self, client, username, password):
-        client.account = Account(id=1001, username=username, password=password)
+        client.account = Account(id=2001, username=username, password=password)
         # client.set_account(data)
 
         return 0
@@ -145,3 +145,19 @@ class WvsLogin(ServerBase):
 
         await client.send_packet(CPacket.end_world_information())
         await client.send_packet(CPacket.latest_connected_world(self._worlds[0]))
+
+    @packet_handler(CRecvOps.CP_CheckUserLimit)
+    async def check_user_limit(self, client, packet):
+        world = packet.decode_short()
+        await client.send_packet(CPacket.check_user_limit(0))
+
+    @packet_handler(CRecvOps.CP_SelectWorld)
+    async def select_world(self, client, packet):
+        packet.decode_byte()
+
+        world_id = packet.decode_byte()
+        channel_id = packet.decode_byte()
+        
+        await client.load_avatars() # Load avatars for specific world in future
+        
+        await client.send_packet(CPacket.world_result(client.avatars))

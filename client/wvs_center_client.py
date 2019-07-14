@@ -6,7 +6,6 @@ class WvsCenterClient(ClientBase):
 
     Parameters
     ----------
-
     parent: `ServerBase`
         Parent server client is connecting to
     socket: `socket`

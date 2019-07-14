@@ -7,13 +7,13 @@ def decrypt_transform(data):
         if j % 2 == 0:
             for i in range(len(data)):
                 cur = data[i]
-                cur -= 0x48
+                cur = (cur - 0x48) & 0xFF
                 cur = ~cur & 0xFF
                 cur = roll_left(cur, data_length & 0xFF)
                 next_remember = cur
                 cur ^= remember
                 remember = next_remember
-                cur -= data_length
+                cur = (cur - data_length) & 0xFF
                 cur = roll_right(cur, 3)
                 data[i] = cur
                 data_length -= 1
@@ -25,8 +25,8 @@ def decrypt_transform(data):
                 next_remember = cur
                 cur ^= remember
                 remember = next_remember
-                cur -= data_length
-                cur = roll_right(cur, 4)
+                cur = (cur - data_length) & 0xFF
+                cur = roll_right(cur, 4) & 0xFF
                 data[i] = cur
                 data_length -= 1
 

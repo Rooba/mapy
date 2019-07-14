@@ -10,10 +10,17 @@ from net.packets.opcodes import InterOps
 class ClientListener(object):
     """Server connection listener for incoming client socket connections
         
-    Attributes
+    Parameters
     -----------
-    is_alive : bool
-        Server alive status
+    parent: :class:`ServerBase`
+        The running server
+    connection: Tuple[str, int]
+        The connection IP and Port the socket listens on
+
+    Attribtues
+    ----------
+    is_alive: bool
+        The servers current alive status
 
     """
     

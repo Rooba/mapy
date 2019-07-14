@@ -3,7 +3,7 @@ from net.packets.packet import Packet
 from net.packets.crypto import MapleIV
 from net.client.client_socket import ClientSocket
 from common.constants import VERSION, SUB_VERSION, LOCALE
-from asyncio import create_task, Lock, get_event_loop
+from asyncio import create_task
 from random import randint
 import logging
 
@@ -15,14 +15,17 @@ class ClientBase:
         self.m_socket = socket
         self._parent = parent
         self._port = None
+        self._is_alive = False
 
     async def initialize(self):
 
         if not isinstance(self._parent, server.CenterServer):
             self._receive_task = self._parent._loop.create_task(self.receive())
 
-            self.m_socket.m_siv = MapleIV(randint(0, 2**31-1))
-            self.m_socket.m_riv = MapleIV(randint(0, 2**31-1))
+            # self.m_socket.m_siv = MapleIV(randint(0, 2**31-1))
+            self.m_socket.m_siv = MapleIV(100)
+            # self.m_socket.m_riv = MapleIV(randint(0, 2**31-1))
+            self.m_socket.m_riv = MapleIV(50)
 
             with Packet(op_code=0x0E) as packet:
                 packet.encode_short(VERSION)
@@ -33,27 +36,23 @@ class ClientBase:
 
                 await self.send_packet_raw(packet)
 
-        self._receive_task = self._parent._loop.create_task(self.receive())
+        self._parent._loop.create_task(self.receive())
 
     async def receive(self):
         self._is_alive = True
 
-        try:
-            while self._is_alive:
-                m_recv_buffer = await self.sock_recv()
+        while self._is_alive:
+            m_recv_buffer = await self.sock_recv()
 
-                if not m_recv_buffer:
-                    await self._parent.on_client_disconnect(self)
-                    return
+            if not m_recv_buffer:
+                await self._parent.on_client_disconnect(self)
+                return
 
-                if self.m_socket.m_riv:
-                    m_recv_buffer = self.manipulate_buffer(m_recv_buffer)
+            if self.m_socket.m_riv:
+                m_recv_buffer = self.manipulate_buffer(m_recv_buffer)
 
-                self.dispatch(
-                    Packet(m_recv_buffer, op_codes=self._parent.__opcodes__))
-
-        except ConnectionResetError:
-            await self._parent.on_client_disconnect(self)
+            self.dispatch(
+                Packet(m_recv_buffer, op_codes=self._parent.__opcodes__))
 
     def dispatch(self, packet):
         self._parent.dispatcher.push(self, packet)
@@ -62,12 +61,12 @@ class ClientBase:
         return await self.m_socket.sock_recv()
 
     async def send_packet(self, packet):
-        log.info("Sent : [%s] %s", packet.op_code.name, packet.to_string())
+        log.info("Sent : [%s] %s", packet.name, packet.to_string())
 
         await self.m_socket.send_packet(packet)
 
     async def send_packet_raw(self, packet):
-        log.info("Sent : [%s] %s", packet.op_code.name, packet.to_string())
+        log.info("Sent : [%s] %s", packet.name, packet.to_string())
         await self.m_socket.send_packet_raw(packet)
 
     def manipulate_buffer(self, buffer):

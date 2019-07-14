@@ -116,7 +116,7 @@ class CenterServer(ServerBase):
             for _ in range(count):
                 world_id = packet.decode_byte()
 
-                if not self._worlds.get(world_id):
+                if not self._worlds.get(lambda w: w.id == world_id):
                     self._worlds.append(World(world_id).from_packet(packet))
 
             for world in self._worlds:

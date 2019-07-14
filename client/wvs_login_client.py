@@ -1,5 +1,5 @@
 from .client_base import ClientBase
-
+from .entities import CharacterEntry
 
 class WvsLoginClient(ClientBase):
     """LoginClient
@@ -22,14 +22,19 @@ class WvsLoginClient(ClientBase):
         self.server_id = None
         self.channel_id = None
         self.logged_in = False
+        self.avatars = []
 
     async def login(self, username, password):
         ret = await self._parent.login(self, username, password)
 
-        if ret == 0:
+        if not ret:
             self.logged_in = True
 
         return ret
+    
+    async def load_avatars(self):
+        characters = await self._parent.data.get_characters(self.account.id)
+        self.avatars += characters
 
     @property
     def account_id(self):

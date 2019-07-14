@@ -9,21 +9,37 @@ class ByteBuffer(BytesIO):
             byte = byte.value
         
         self.write((byte).to_bytes(1, 'little'))
+        return self
 
     def encode_short(self, short):
         self.write((short).to_bytes(2, 'little'))
+        return self
 
     def encode_int(self, int_):
         self.write((int_).to_bytes(4, 'little'))
+        return self
     
     def encode_long(self, long):
         self.write((long).to_bytes(8, 'little'))
+        return self
 
     def encode_string(self, string):
         self.write((len(string)).to_bytes(2, 'little'))
 
         for ch in string:
             self.write(ch.encode())
+        
+        return self
+
+    def encode_fixed_string(self, string, length):
+        for i in range(13):
+            if i < len(string):
+                self.write(string[i].encode())
+                continue
+            
+            self.encode_byte(0)
+        
+        return self
 
     def decode_byte(self):
         return (int).from_bytes(self.read(1), 'little')
@@ -48,6 +64,8 @@ class ByteBuffer(BytesIO):
             string += self.read(1).decode()
 
         return string
+    
+
 
 class Packet(ByteBuffer):
     def __init__(self, data=None, op_code=None, op_codes=None):
@@ -70,6 +88,13 @@ class Packet(ByteBuffer):
             
         else:
             self.op_code = self.op_codes(self.decode_short())
+
+    @property
+    def name(self):
+        if isinstance(self.op_code, int):
+            return self.op_code
+        
+        return self.op_code.name
 
     def to_array(self):
         return self.getvalue()

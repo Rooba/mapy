@@ -39,27 +39,24 @@ class ServerBase:
     def run(self, port=None, listen=False):
         loop = self._loop
 
-        # try:
-        #     loop.add_signal_handler(signal.SIGINT, lambda: loop.stop())
-        #     loop.add_signal_handler(signal.SIGTERM, lambda: loop.stop())
-        # except NotImplementedError:
-        #     pass
+        try:
+            loop.add_signal_handler(signal.SIGINT, lambda: loop.stop())
+            loop.add_signal_handler(signal.SIGTERM, lambda: loop.stop())
+        except NotImplementedError:
+            pass
 
-        # async def runner():
-        #     try:
-        #         await self.start(port, listen)
-        #     finally:
-        #         pass
+        async def runner():
+            try:
+                await self.start(port, listen)
+            finally:
+                pass
 
-        # def stop_loop_on_completion(f):
-        #     self.close()
-        #     loop.stop()
+        def stop_loop_on_completion(f):
+            loop.stop()
 
-        # future = ensure_future(self.start(port, listen), loop=loop)
-        # future.add_done_callback(stop_loop_on_completion)
+        future = loop.create_task(self.start(port, listen))
+        future.add_done_callback(stop_loop_on_completion)
 
-        loop.create_task(self.start(port, listen))
-        
         try:
             loop.run_forever()
 
@@ -67,11 +64,13 @@ class ServerBase:
             log.info('Received signal to terminate event loop.')
 
         finally:
+            future.remove_done_callback(stop_loop_on_completion)
+            loop.run_until_complete(loop.shutdown_asyncgens())
             log.info('[%s] Closed' % self.name)
 
 
     async def start(self, port, listen):
-        self._api = HTTPClient(loop=self._loop)
+        self.data = HTTPClient(loop=self._loop)
         self.is_alive = True
 
         if self._center:
@@ -85,7 +84,7 @@ class ServerBase:
             self._ready.set()
             self._loop.create_task(self.listen())
         
-        self._loop.create_task(wakeup())
+        await wakeup()
 
     def close(self):
         for task in Task.all_tasks():
@@ -106,7 +105,6 @@ class ServerBase:
 
     async def on_client_disconnect(self, client):
         self._clients.remove(client)
-        await client._receive_task.cancel()
         
         log.info("[%s] Client Disconnect", self._name)
 
@@ -123,7 +121,7 @@ class ServerBase:
 
         Waits until the GameServer has started listening for clients.
         """
-        await self._ready.wait()
+        await self._ready.wait() 
 
     def listen(self):
         return self._acceptor._listen()

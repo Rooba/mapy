@@ -1,16 +1,13 @@
+from utils import Manager
 from common.constants import GAME_PORT
 
-class WvsGameManager(list):
+class WvsGameManager(Manager):
     def __init__(self, world, channel_limit = 1):
         self._world = world
         self.channel_limit = channel_limit
 
-    def get(self, channel_id):
-        for channel in self:
-            if channel.id == channel_id:
-                return channel
-        
-        return None
+    # def get(self, channel_id):
+    #     return first_or_default(self, lambda c: c.id == channel_id)
         
     def add(self, client):
         self.append(client)

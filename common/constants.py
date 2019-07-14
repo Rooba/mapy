@@ -4,6 +4,12 @@ LOGIN_PORT = 8484
 GAME_PORT = 8585
 SHOP_PORT = 8787
 
+USE_DATABASE = True
+DSN = "postgres://user:password@host:port/database?option=value"
+DB_HOST = ""
+DB_PASS = ""
+
+
 CENTER_KEY = 'Super Secret Key -- !'
 
 WORLD_COUNT = 1
@@ -33,3 +39,5 @@ DEFAULT_TICKER = "Welcome"
 ALLOW_MULTI_LEVELING = False
 DEFAULT_CREATION_SLOTS = 3
 DISABLE_CHARACTER_CREATION = False
+
+PERMANENT = 150841440000000000
