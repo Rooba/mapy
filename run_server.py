@@ -1,10 +1,8 @@
 from asyncio import get_event_loop
-from sys import argv
-import logging
+from sys import argv, stderr
 
 from server import CenterServer, WvsLogin, WvsGame
 
-logging.basicConfig(level=logging.DEBUG)
 loop = get_event_loop()
 
 if len(argv) > 1:
@@ -20,8 +18,9 @@ cls = {
     'game': WvsGame,
 }.get(server_option)
 
+
 if not cls:
     exit("Decalre server: run [ center | login | game ]")
 
-server = cls(loop)
+server = cls()
 server.run()

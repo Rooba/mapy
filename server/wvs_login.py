@@ -1,25 +1,27 @@
-from server.server_base import ServerBase
-from server._wvs_login import Channel, World, CenterServer
-from utils.cpacket import CPacket
-from net.packets.packet import packet_handler
-from net.packets import Packet
-from net.packets.opcodes import CRecvOps, InterOps, CSendOps
-from client.entities import Account
-from client import WvsLoginClient
-from common.enum import ServerRegistrationResponse
-from common.constants import LOGIN_PORT, CENTER_PORT, HOST_IP, AUTO_REGISDTER, MAX_CHARACTERS,\
-    REQUEST_PIC, REQUEST_PIN, REQUIRE_STAFF_IP, WORLD_COUNT, AUTO_LOGIN, CENTER_KEY
 import asyncio
-import logging
 
-log = logging.getLogger(__name__)
+from loguru import logger
+
+from client import WvsLoginClient
+from client.entities import Account, Character
+from client.entities.inventory import InventoryType
+from common.constants import (
+    AUTO_LOGIN, AUTO_REGISDTER, CENTER_KEY, CENTER_PORT, HOST_IP, LOGIN_PORT,
+    MAX_CHARACTERS, REQUEST_PIC, REQUEST_PIN, REQUIRE_STAFF_IP, WORLD_COUNT,
+    get_job_from_creation)
+from common.enum import ServerRegistrationResponse
+from net.packets import Packet
+from net.packets.opcodes import CRecvOps, CSendOps, InterOps
+from net.packets.packet import packet_handler
+from server._wvs_login import CenterServer, Channel, World
+from server.server_base import ServerBase
+from utils.cpacket import CPacket
 
 
 class WvsLogin(ServerBase):
     __opcodes__ = CRecvOps
 
-    def __init__(self, loop=None):
-
+    def __init__(self):
         super().__init__('LoginServer')
 
         self._center = CenterServer
@@ -35,7 +37,8 @@ class WvsLogin(ServerBase):
 
         # for i in range(WORLD_COUNT):
         #     self._worlds.append(World(i + 1))
-        self._worlds.append(World(15))
+        self._worlds.append(World(0))
+        self._worlds.append(World(1))
 
     def run(self):
         super().run(LOGIN_PORT)
@@ -46,16 +49,18 @@ class WvsLogin(ServerBase):
 
     @packet_handler(InterOps.RegistrationResponse)
     async def registration_response(self, client, packet):
+        """CenterServer reponse to requesting verification"""
+
         response = ServerRegistrationResponse(packet.decode_byte())
 
         if response == ServerRegistrationResponse.Valid:
             self._loop.create_task(self.listen())
 
-            log.info("Registered Login Server")
+            logger.info("Registered Login Server")
 
         else:
-            log.error(
-                "Failed to register Login Server [Reason: %s]", response.name)
+            logger.error(
+                f"Failed to register Login Server [{response.name}]")
 
             self.is_alive = False
 
@@ -77,12 +82,8 @@ class WvsLogin(ServerBase):
         world_id = packet.decode_byte()
         channel_id = packet.decode_byte()
 
-        self._worlds[world_id]._channels[channel_id].population = packet.decode_int()
-
-    @packet_handler(InterOps.CharacterNameCheckResponse)
-    async def check_character_name(self, client, packet):
-        # Don't need this?
-        pass
+        self._worlds[world_id]\
+            ._channels[channel_id].population = packet.decode_int()
 
     async def is_name_taken(self, name):
         pass
@@ -115,40 +116,50 @@ class WvsLogin(ServerBase):
             i_packet.seek(2)
             client.dispatch(i_packet)
 
-    @packet_handler(CRecvOps.CP_CheckDuplicatedID)
-    async def check_duplicated_id(self, client, packet):
-        username = packet.decode_string()
-        is_available = await self._api.is_username_taken(username)
+    async def login(self, client, username: str, password: str):
 
-        await client.send_packet(CPacket.check_duplicated_id_result(username, is_available))
+        account = await self.data.login(username, password)
 
-    async def login(self, client, username, password):
-        client.account = Account(id=2001, username=username, password=password)
-        # client.set_account(data)
+        if not account['resp']:
+            client.account = Account(**account['account'])
+            return 0
 
-        return 0
+        return account['resp']
 
     @packet_handler(CRecvOps.CP_CheckPassword)
     async def check_password(self, client, packet):
-
         password = packet.decode_string()
         username = packet.decode_string()
 
         response = await client.login(username, password)
 
-        await client.send_packet(CPacket.check_password_result(client, response))
+        if not response:
+            await client.send_packet(
+                CPacket.check_password_result(client, response))
 
-    @packet_handler(CRecvOps.CP_WorldRequest)
-    async def world_request(self, client, packet):
+        else:
+            await client.send_packet(
+                CPacket.check_password_result(response=response))
+
+    async def send_world_information(self, client) -> None:
         for world in self._worlds:
             await client.send_packet(CPacket.world_information(world))
 
         await client.send_packet(CPacket.end_world_information())
-        await client.send_packet(CPacket.latest_connected_world(self._worlds[0]))
+        await client.send_packet(CPacket.last_connected_world(0))
+
+        await client.send_packet(CPacket.send_recommended_world(self._worlds))
+
+    @packet_handler(CRecvOps.CP_WorldRequest)
+    async def world_request(self, client, packet):
+        await self.send_world_information(client)
+
+    @packet_handler(CRecvOps.CP_WorldInfoRequest)
+    async def world_info_request(self, client, packet):
+        await self.send_world_information(client)
 
     @packet_handler(CRecvOps.CP_CheckUserLimit)
     async def check_user_limit(self, client, packet):
-        world = packet.decode_short()
         await client.send_packet(CPacket.check_user_limit(0))
 
     @packet_handler(CRecvOps.CP_SelectWorld)
@@ -156,8 +167,78 @@ class WvsLogin(ServerBase):
         packet.decode_byte()
 
         world_id = packet.decode_byte()
-        channel_id = packet.decode_byte()
-        
-        await client.load_avatars() # Load avatars for specific world in future
-        
+        # channel ID
+        packet.decode_byte()
+
+        client.account.last_connected_world = world_id
+
+        # Load avatars for specific world in future
+        await client.load_avatars(world_id=world_id)
         await client.send_packet(CPacket.world_result(client.avatars))
+
+    @packet_handler(CRecvOps.CP_LogoutWorld)
+    async def logout_world(self, client, packet):
+        pass
+
+    @packet_handler(CRecvOps.CP_CheckDuplicatedID)
+    async def check_duplicated_id(self, client, packet):
+        username = packet.decode_string()
+        is_available = await self.data.is_username_taken(username)
+
+        await client.send_packet(
+            CPacket.check_duplicated_id_result(username, is_available))
+
+    @packet_handler(CRecvOps.CP_ViewAllChar)
+    async def view_all_characters(self, client, packet):
+        await client.load_avatars()
+        packet.decode_byte()  # game_start_mode
+
+        await asyncio.sleep(2)
+        await client.send_packet(
+            CPacket.start_view_all_characters(client.avatars))
+
+        for world in self._worlds:
+            await client.send_packet(
+                CPacket.view_all_characters(world, client.avatars))
+
+    @packet_handler(CRecvOps.CP_CreateNewCharacter)
+    async def create_new_character(self, client, packet):
+        character = Character()
+        character.name = packet.decode_string()
+        character.job = get_job_from_creation(packet.decode_int())
+        character.sub_job = packet.decode_short()
+        character.face = packet.decode_int()
+        character.hair = packet.decode_int() + packet.decode_int()
+        character.skin = packet.decode_int()
+
+        invs = character.inventories
+
+        top = await self.data.get_item(packet.decode_int())
+        bottom = await self.data.get_item(packet.decode_int())
+        shoes = await self.data.get_item(packet.decode_int())
+        weapon = await self.data.get_item(packet.decode_int())
+
+        # print(top, bottom, shoes, weapon)
+
+        invs.add(top, slot=-5)
+        invs.add(bottom, slot=-6)
+        invs.add(shoes, slot=-7)
+        invs.add(weapon, slot=-11)
+        
+        # invs.add(await self.data.get_item(packet.decode_int()), slot=-5)
+        # invs.add(await self.data.get_item(packet.decode_int()), slot=-6)
+        # invs.add(await self.data.get_item(packet.decode_int()), slot=-7)
+        # invs.add(await self.data.get_item(packet.decode_int()), slot=-11)
+        character.gender = packet.decode_byte()
+
+        response = await self.data.\
+            create_new_character(client.account.id, character)
+
+        if response:
+            character.id = response
+
+            return await client.send_packet(
+                CPacket.create_new_character(character, False))
+        
+        return await client.send_packet(
+            CPacket.create_new_character(character, True))

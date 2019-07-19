@@ -1,33 +1,121 @@
 from enum import Enum
 from io import BytesIO
 
+from . import CRecvOps
 from utils.tools import to_string
 
+debug_codes = [
+    ('r',  ( '|', '|')),
+    ('lr', ( '|', '&' )),
+    ('c',  ( '~',  '~' )),
+    ('lc', ( '~',  '&' )),
+    ('y',  ( '#',  '#' )),
+    ('ly', ('#',   '&' )),
+    ('g',  ('^', '^' )),
+    ('lg', ('^',  '&' )),
+    ('m',  ('@',   '@' )),
+    ('lm', ('@',   '&' ))
+]
+
+class DebugType(Enum):
+    _byte =    0x1
+    _short =   0x2
+    _int =     0x4
+    _long =    0x8
+    _string =  0x10
+
 class ByteBuffer(BytesIO):
+    """Base class for packet write and read operations"""
+
+    def __init__(self, initial_bytes):
+        super().__init__(initial_bytes)
+        self._debug_string = ""
+        self._last_debug_encode = ""
+        self._string_len = 0
+    
+    def to_debug(self, val, type_, string_len = 0):
+        
+        debug_type = type_
+
+        _iter = debug_codes[type_ if type_ < 8 else type_ - 2]
+        color, codes = _iter
+        first, second = codes
+
+        if not isinstance(val, bytes):
+            val = (val).to_bytes(type_, 'little') if isinstance(val, int) else val.encode()
+
+        if debug_type != 10 and self._string_len != 0:
+            color = self._last_debug_encode
+            first = '@'
+            second = '&' if self._last_debug_encode.startswith('l') else first
+
+            self._debug_string += to_string(val)
+            self._string_len -= 1
+            self._debug_string += second + " " if self._string_len == 0 else " "
+
+        elif debug_type != 10:
+            if self._last_debug_encode == color:
+                color = color.strip('l') if color.startswith('l') else 'l' + color
+                second = '&' if second != '&' else first
+
+            self._debug_string += (f"--{first}{to_string(val)}{second} ")
+            self._last_debug_encode = color
+            return
+        
+        else:
+            if self._string_len == 0:
+                self._string_len = string_len
+                self._debug_string += '--' + first
+
+                if self._last_debug_encode == color:
+                    color = color.strip('l') if color.startswith('l') else 'l' + color
+                    second = first if second != '&' else '&'
+                
+            self._debug_string += to_string(val)
+            self._string_len -= 1
+
+            if self._string_len == 0:
+                self._debug_string += second + " "
+            
+            else:
+                self._debug_string += " "
+
     def encode_byte(self, byte):
         if isinstance(byte, Enum):
             byte = byte.value
         
-        self.write((byte).to_bytes(1, 'little'))
+        bytes_ = (byte).to_bytes(1, 'little')
+        self.write(bytes_)
+        self.to_debug(bytes_, 1)
+
         return self
 
     def encode_short(self, short):
-        self.write((short).to_bytes(2, 'little'))
+        bytes_ = (short).to_bytes(2, 'little')
+        self.write(bytes_)
+        self.to_debug(bytes_, 2)
         return self
 
     def encode_int(self, int_):
-        self.write((int_).to_bytes(4, 'little'))
+        bytes_ = (int_).to_bytes(4, 'little')
+        self.write(bytes_)
+        self.to_debug(bytes_, 4)
         return self
     
     def encode_long(self, long):
-        self.write((long).to_bytes(8, 'little'))
+        bytes_ = (long).to_bytes(8, 'little')
+        self.write(bytes_)
+        self.to_debug(bytes_, 8)
         return self
 
     def encode_string(self, string):
-        self.write((len(string)).to_bytes(2, 'little'))
+        bytes_ = (len(string)).to_bytes(2, 'little')
+        self.write(bytes_)
+        self.to_debug(bytes_, 2)
 
         for ch in string:
             self.write(ch.encode())
+            self.to_debug(ch.encode(), 10, len(string))
         
         return self
 
@@ -35,6 +123,7 @@ class ByteBuffer(BytesIO):
         for i in range(13):
             if i < len(string):
                 self.write(string[i].encode())
+                self.to_debug(string[i].encode(), 10, length)
                 continue
             
             self.encode_byte(0)
@@ -64,16 +153,26 @@ class ByteBuffer(BytesIO):
             string += self.read(1).decode()
 
         return string
-    
-
 
 class Packet(ByteBuffer):
+    """Packet class use in all send / recv opertions
+    
+    Parameters
+    ----------
+    data: bytes
+        The initial data to load into the packet
+    op_code: :class:`OpCodes`
+        OpCode used to encode the first short onto the packet
+    op_codes: :class:`OpCodes`
+        Which enum to try to get the op_code from
+    
+    """
     def __init__(self, data=None, op_code=None, op_codes=None):
         self.op_codes = op_codes
 
         if data == None:
             data = b''
-        
+
         super().__init__(data)
 
         if not data:
@@ -84,10 +183,59 @@ class Packet(ByteBuffer):
             
             else:
                 self.encode_short(self.op_code.value)
-                
             
         else:
-            self.op_code = self.op_codes(self.decode_short())
+            if self.op_codes == CRecvOps:
+
+                type_ = self.decode_byte()
+                try:
+                    self.op_code = self.op_codes(self.decode_short())
+                except ValueError:
+                    self.op_code = None
+                
+                if not self.op_code:
+                    self.seek(0)
+                    self.op_code = self.op_codes(self.decode_short())
+                    return
+
+                packet = Packet(op_code = self.op_code)
+                i = len(data) - 3
+
+                while i > 0:
+                    type_ = self.decode_byte()
+
+                    if type_ == 1:
+                        packet.encode_byte(self.decode_byte())
+                        i -= 2
+                    
+                    elif type_ == 2:
+                        packet.encode_short(self.decode_short())
+                        i -= 3
+                    
+                    elif type_ == 4:
+                        packet.encode_int(self.decode_int())
+                        i -= 5
+                    
+                    elif type_ % 8 == 0:
+                        num = int(type_ / 8)
+
+                        for _ in range(num):
+                            packet.encode_long(self.decode_long())
+                        
+                        i -= 1 + (8 * num)
+
+                    elif type_ == 10:
+                        str_ = self.decode_string()
+                        packet.encode_string(str_)
+                        i -= (len(str_) + 3)
+                
+
+                super().__init__(packet.getvalue())
+                self.seek(2)
+                self._debug_string = packet._debug_string
+            
+            else:
+                self.op_code = self.op_codes(self.decode_short())
 
     @property
     def name(self):
@@ -101,6 +249,10 @@ class Packet(ByteBuffer):
 
     def to_string(self):
         return to_string(self.getvalue())
+
+    @property
+    def debug_string(self):
+        return self._debug_string if self._debug_string != "" else self.to_string()
 
     def __len__(self):
         return len(self.getvalue())

@@ -1,8 +1,6 @@
 import asyncio
 from socket import socket, SOCK_STREAM, AF_INET
-import logging
-
-log = logging.getLogger(__name__)
+from loguru import logger
 
 from common.enum import ServerType
 from net.packets.packet import Packet
@@ -56,4 +54,6 @@ class CenterServer:
         self._parent.dispatcher.push(self._socket, packet)
 
     async def send_packet_raw(self, packet):
+        logger.packet(f"{packet.name} {self._socket.getpeername()[0]} {packet.debug_string}", "out")
+
         await self._loop.sock_sendall(self._socket, packet.getvalue())

@@ -5,9 +5,7 @@ from net.packets.packet import packet_handler, Packet
 from client import WvsCenterClient
 from common.enum import ServerType, ServerRegistrationResponse
 from common import constants
-import logging
-
-log = logging.getLogger(__name__)
+from loguru import logger
 
 
 class CenterServer(ServerBase):
@@ -19,7 +17,7 @@ class CenterServer(ServerBase):
         Server alive status
     name: :class:`str`
         Server specific name
-    _login: :class:`LoginServer`
+    login: :class:`LoginServer`
         Registered :class:`Login` Server
     _worlds: :class:`Worlds`[:class:`World`]
         List of registered :class:`World` clients
@@ -30,10 +28,10 @@ class CenterServer(ServerBase):
 
     __opcodes__ = InterOps
 
-    def __init__(self, loop=None):
+    def __init__(self):
         super().__init__('CenterServer')
         self._security_key = constants.CENTER_KEY
-        self._login = None
+        self.login = None
         self._worlds = WorldManager(self, constants.WORLD_COUNT)
         self._shop = None
 
@@ -41,8 +39,8 @@ class CenterServer(ServerBase):
         return WvsCenterClient(self, client)
 
     async def on_client_disconnect(self, client):
-        if client == self._login:
-            self._login = None
+        if client == self.login:
+            self.login = None
 
             # for world in self._worlds:
             # for channel in world.channels:
@@ -59,54 +57,54 @@ class CenterServer(ServerBase):
         server_type = packet.decode_byte()
         security_key = packet.decode_string()
 
-        with Packet(op_code=InterOps.RegistrationResponse) as out_packet:
-            try:
+        packet = Packet(op_code=InterOps.RegistrationResponse)
+        try:
                 server_type = ServerType(server_type)
-            except ValueError:
-                out_packet.encode_byte(ServerRegistrationResponse.InvalidType)
-                return await client.send_packet_raw(out_packet)
+        except ValueError:
+            packet.encode_byte(ServerRegistrationResponse.InvalidType)
+            return await client.send_packet_raw(packet)
 
-            if security_key != self._security_key:
-                out_packet.encode_byte(ServerRegistrationResponse.InvalidCode)
-                return await client.send_packet_raw(out_packet)
+        if security_key != self._security_key:
+            packet.encode_byte(ServerRegistrationResponse.InvalidCode)
+            return await client.send_packet_raw(packet)
 
-            valid_world = self._worlds.get_open()
+        valid_world = self._worlds.get_open()
 
-            if server_type == ServerType.login and self._login or \
-                    server_type == ServerType.channel and not valid_world or \
-                    server_type == ServerType.shop and self._shop:
-                out_packet.encode_byte(ServerRegistrationResponse.Full)
-                return await client.send_packet_raw(out_packet)
+        if server_type == ServerType.login and self.login or \
+                server_type == ServerType.channel and not valid_world or \
+                server_type == ServerType.shop and self._shop:
+            packet.encode_byte(ServerRegistrationResponse.Full)
+            return await client.send_packet_raw(packet)
 
-            out_packet.encode_byte(ServerRegistrationResponse.Valid)
+        packet.encode_byte(ServerRegistrationResponse.Valid)
 
-            if server_type == ServerType.login:
-                self._login = client
-                self._login.port = 8484
-                await client.send_packet_raw(out_packet)
+        if server_type == ServerType.login:
+            self.login = client
+            self.login.port = 8484
+            await client.send_packet_raw(packet)
+
+        else:
+            packet.encode_byte(valid_world.id)
+            packet.encode_string("Kastia")
+
+            if server_type == ServerType.shop:
+                self._shop = client
+                self._shop.port = 9595
+                packet.encode_short(9595)  # shop port
 
             else:
-                out_packet.encode_byte(valid_world.id)
-                out_packet.encode_string("Kastia")
+                channel = valid_world.channels.add(client)
+                packet.encode_string("wee woo maplestory")
+                packet.encode_byte(channel.id)
+                packet.encode_short(channel.port)
+                packet.encode_byte(0)  # multi leveling
+                packet.encode_int(1)  # experience rate
+                packet.encode_int(1)  # quest experience
+                packet.encode_int(1)  # party quest experience
+                packet.encode_int(1)  # meso rate
+                packet.encode_int(1)  # drop rate
 
-                if server_type == ServerType.shop:
-                    self._shop = client
-                    self._shop.port = 9595
-                    out_packet.encode_short(9595)  # shop port
-
-                else:
-                    channel = valid_world.channels.add(client)
-                    out_packet.encode_string("wee woo maplestory")
-                    out_packet.encode_byte(channel.id)
-                    out_packet.encode_short(channel.port)
-                    out_packet.encode_byte(0)  # multi leveling
-                    out_packet.encode_int(1)  # experience rate
-                    out_packet.encode_int(1)  # quest experience
-                    out_packet.encode_int(1)  # party quest experience
-                    out_packet.encode_int(1)  # meso rate
-                    out_packet.encode_int(1)  # drop rate
-
-                await client.send_packet_raw(out_packet)
+            await client.send_packet_raw(packet)
 
         client.type = server_type
 
@@ -121,34 +119,34 @@ class CenterServer(ServerBase):
 
             for world in self._worlds:
                 for channel in world.channels:
-                    with Packet(op_code=InterOps.UpdateChannel) as out_packet:
+                    with Packet(op_code=InterOps.UpdateChannel) as packet:
                         packet.encode_byte(channel.world.id)
                         packet.encode_byte(True)
                         packet.encode_byte(channel.id)
                         packet.encode_short(channel.port)
                         packet.encode_int(channel.population)
 
-                        await self._login.send_packet_raw(out_packet)
+                        await self.login.send_packet_raw(packet)
 
-            log.info("Registered Login Server on %s", self._login.port)
+            logger.info(f"Registered Login Server on --~{self.login.port}&")
 
         elif client.type == ServerType.channel:
-            with Packet(op_code=InterOps.UpdateChannel) as out_packet:
-                out_packet.encode_byte(client.world.id)
-                out_packet.encode_byte(True)
-                out_packet.encode_byte(client.id)
-                out_packet.encode_short(client.port)
-                out_packet.encode_int(client.population)
+            with Packet(op_code=InterOps.UpdateChannel) as packet:
+                packet.encode_byte(client.world.id)
+                packet.encode_byte(True)
+                packet.encode_byte(client.id)
+                packet.encode_short(client.port)
+                packet.encode_int(client.population)
 
-                await self._login.send_packet_raw(out_packet)
+                await self.login.send_packet_raw(packet)
 
     @packet_handler(InterOps.UpdateChannelPopulation)
     async def update_channel_population(self, client, packet):
         population = packet.decode_int()
 
-        with Packet(op_code=InterOps.UpdateChannelPopulation) as out_packet:
-            out_packet.encode_byte(client.world.id)
-            out_packet.encode_byte(client.id)
-            out_packet.encode_int(population)
+        with Packet(op_code=InterOps.UpdateChannelPopulation) as packet:
+            packet.encode_byte(client.world.id)
+            packet.encode_byte(client.id)
+            packet.encode_int(population)
 
-            await self._login.send_packet_raw(out_packet)
+            await self.login.send_packet_raw(packet)

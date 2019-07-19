@@ -1,7 +1,5 @@
 import asyncio
-import logging
-
-log = logging.getLogger(__name__)
+from loguru import logger
 
 from common.constants import CENTER_PORT, HOST_IP
 from common.enum import ServerRegistrationResponse
@@ -56,14 +54,14 @@ class WvsGame(ServerBase):
             self.meso_rate = packet.decode_int()
             self.drop_rate = packet.decode_int()
 
-            log.info("Registered Game Server [World Name: %s] [World ID: %s] [Channel ID: %s]", 
+            logger.info("Registered Game Server [World Name: {}] [World ID: {}] [Channel ID: {}]", 
                 self.world_name, self.world_id, self.channel_id)
 
             self.start_acceptor(self._port)
             self._loop.create_task(self.listen())
 
         else:
-            log.error("Unable to register Game Server [Reason: %s]", response.name)
+            logger.error("Unable to register Game Server [Reason: {}]", response.name)
 
             self.is_alive = False
 

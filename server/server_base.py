@@ -1,15 +1,17 @@
 from asyncio import get_event_loop, create_task, Event, ensure_future, Task, wait_for
-import inspect
-import logging
 import signal
+from sys import stderr
+from functools import wraps
+from loguru._logger import Logger
+from loguru import logger
+from re import search, compile, sub
 
-log = logging.getLogger(__name__)
-
-from common.constants import HOST_IP, CENTER_PORT
+from common.constants import HOST_IP, CENTER_PORT, USE_DATABASE, USE_HTTP_API
 from net.client import ClientSocket
 from net.packets.packet import PacketHandler
 from net.server import Dispatcher, ClientListener
 from utils.tools import wakeup
+from utils import log
 from web import HTTPClient
 
 class ServerBase:
@@ -27,29 +29,58 @@ class ServerBase:
     def __init__(self, name = ""):
         self._loop = get_event_loop()
 
-        self._ready = Event(loop=self._loop)
         self._name = name
+        self.setup_logger()
+        self._ready = Event(loop=self._loop)
         self._center = None
-        self._is_alive = False
+        self.is_alive = False
         self._clients = []
         self._packet_handlers = []
         self._dispatcher = Dispatcher(self)
         self.add_packet_handlers()
 
+    def setup_logger(self):
+        logger.remove()
+
+        def main_formatter(record):
+            repl_str = log.make_string(record['message'])
+            string = f"<lg>[</lg><level>{record['level']:^12}</level><lg>]</lg> <r>[</r>{self._name}<r>]</r> <level>{repl_str}</level>"
+            return string + "\n"
+
+        logger.add(stderr, filter=log.filter_packets, colorize=True, format=main_formatter, diagnose=True)
+
+        def in_packet_formatter(record):
+            match_packet = search(r"(?P<opcode>[A-Za-z0-9\._]+)\s(?P<ip>[0-9\.]+)\s(?P<packet>[A-Z0-9\-&\^\|\#@~\s]*)", record['message'])
+            matches = [*match_packet.group(1, 2, 3)]
+            matches[2] = log.make_string(matches[2])
+
+            string = f"<lg>[</lg><level>{'INPACKET':^12}</level><lg>]</lg> <r>[</r>{self._name}<r>]</r> "
+            string += f"<r>[</r><level>{matches[0]}</level><r>]</r> <g>[</g>{matches[1]}<g>]</g> <w>{matches[2]}</w>"
+            return string + "\n"
+        
+        def out_packet_formatter(record):
+            match_packet = search(r"(?P<opcode>[A-Za-z0-9\._]+)\s(?P<ip>[0-9\.]+)\s(?P<packet>[A-Z0-9\-&\^\|\#@~\s]*)", record['message'])
+            matches = [*match_packet.group(1, 2, 3)]
+            matches[2] = log.make_string(matches[2])
+
+            string = f"<lg>[</lg><level>{'OUTPACKET':^12}</level><lg>]</lg> <r>[</r>{self._name}<r>]</r> "
+            string += f"<r>[</r><level>{matches[0]}</level><r>]</r> <g>[</g>{matches[1]}<g>]</g> <w>{matches[2]}</w>"
+            return string + "\n"
+
+        logger.level('INPACKET', 50, color="<c>")
+        logger.add(stderr, colorize=True, level="INPACKET", filter=log.filter_bound_in, format=in_packet_formatter)
+        
+        logger.level('OUTPACKET', 50, color="<lm>")
+        logger.add(stderr, colorize=True, level="OUTPACKET", filter=log.filter_bound_out, format=out_packet_formatter)
+
     def run(self, port=None, listen=False):
         loop = self._loop
 
         try:
-            loop.add_signal_handler(signal.SIGINT, lambda: loop.stop())
-            loop.add_signal_handler(signal.SIGTERM, lambda: loop.stop())
+            loop.add_signal_handler(signal.SIGINT, loop.stop)
+            loop.add_signal_handler(signal.SIGTERM, loop.stop)
         except NotImplementedError:
             pass
-
-        async def runner():
-            try:
-                await self.start(port, listen)
-            finally:
-                pass
 
         def stop_loop_on_completion(f):
             loop.stop()
@@ -61,16 +92,17 @@ class ServerBase:
             loop.run_forever()
 
         except KeyboardInterrupt:
-            log.info('Received signal to terminate event loop.')
+            logger.warning('Received signal to terminate event loop')
 
         finally:
             future.remove_done_callback(stop_loop_on_completion)
             loop.run_until_complete(loop.shutdown_asyncgens())
-            log.info('[%s] Closed' % self.name)
-
+            logger.warning(f"Closed Server {self.name}")
 
     async def start(self, port, listen):
-        self.data = HTTPClient(loop=self._loop)
+        if USE_HTTP_API:
+            self.data = HTTPClient(loop=self._loop)
+        
         self.is_alive = True
 
         if self._center:
@@ -98,7 +130,7 @@ class ServerBase:
         client = ClientSocket(socket)
         maple_client = await getattr(self, 'client_connect')(client)
 
-        log.info("[%s] Acepted %s", self._name, client.identifier)
+        logger.info(f"Accepted {maple_client.ip}")
 
         self._clients.append(maple_client)
         await maple_client.initialize()
@@ -106,9 +138,11 @@ class ServerBase:
     async def on_client_disconnect(self, client):
         self._clients.remove(client)
         
-        log.info("[%s] Client Disconnect", self._name)
+        logger.info(f"Client Disconnected {client.ip}")
 
     def add_packet_handlers(self):
+        import inspect
+
         members = inspect.getmembers(self)
         for _, member in members:
             # register all packet handlers for server
@@ -129,14 +163,6 @@ class ServerBase:
     @property
     def dispatcher(self):
         return self._dispatcher
-
-    @property
-    def is_alive(self):
-        return self._is_alive
-
-    @is_alive.setter
-    def is_alive(self, val: bool):
-        self._is_alive = val
     
     @property
     def name(self):

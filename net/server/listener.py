@@ -1,11 +1,10 @@
 from asyncio import create_task, get_event_loop, wait_for, sleep
 from socket import socket, SO_REUSEADDR, SOL_SOCKET, AF_INET, SOCK_STREAM
-import logging
-
-log = logging.getLogger(__name__)
+from loguru import logger
 
 from net.packets.packet import Packet
 from net.packets.opcodes import InterOps
+
 
 class ClientListener(object):
     """Server connection listener for incoming client socket connections
@@ -39,7 +38,8 @@ class ClientListener(object):
         return self._parent.is_alive
 
     async def _listen(self):
-        log.info("Listening on port %s", self._connection[1])
+        logger.info(
+            f"Listening on port --~{self._connection[1]}&")
         
         while self.is_alive:
             client_sock, _ = await self._loop.sock_accept(self._serv_sock)

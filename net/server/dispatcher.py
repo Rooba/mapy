@@ -1,6 +1,4 @@
-import logging
-
-log = logging.getLogger(__name__)
+from loguru import logger
 
 
 class Dispatcher:
@@ -20,7 +18,7 @@ class Dispatcher:
     #             raise AttributeError
 
     #     except AttributeError:
-    #         log.info("Unhandled event in %s : %s",
+    #         ("Unhandled event in %s : %s",
     #                  self.parent.name, op_code.name)
 
     #     else:
@@ -29,11 +27,11 @@ class Dispatcher:
 
     def push(self, client, packet):
         if client.__class__.__name__ == "socket":
-            log.info("Recieved [%s] : [%s] [%s]", client.getpeername()[
-                     0], packet.name, packet.to_string())
+            logger.packet(
+                f"{packet.name} {client.getpeername()[0]} {packet.debug_string}", "in")
         else:
-            log.info("Recieved [%s] : [%s] [%s]",
-                     client.ip, packet.name, packet.to_string())
+            logger.packet(
+                f"{packet.name} {client.ip} {packet.debug_string}", "in")
 
         try:
             coro = None
@@ -47,8 +45,8 @@ class Dispatcher:
                 raise AttributeError
 
         except AttributeError:
-            log.info("Unhandled event in %s : %s",
-                        self.parent.name, packet.name)
+            logger.warning(
+                f"Unhandled event in {self.parent.name} : <w>{packet.name}</w>")
 
         else:
             self.parent._loop.create_task(
