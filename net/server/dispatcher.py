@@ -41,7 +41,7 @@ class Dispatcher:
 
         except AttributeError:
             log.warning(
-                f"Unhandled event in : <w>{packet.name}</w>")
+                f"{self.parent.name} Unhandled event in : <w>{packet.name}</w>")
 
         else:
             self.parent._loop.create_task(

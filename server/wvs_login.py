@@ -7,6 +7,7 @@ from common.constants import (
     AUTO_LOGIN, AUTO_REGISDTER, CENTER_PORT, HOST_IP, LOGIN_PORT,
     MAX_CHARACTERS, REQUEST_PIC, REQUEST_PIN, REQUIRE_STAFF_IP, WORLD_COUNT,
     get_job_from_creation)
+from db import DatabaseClient
 from net.packets import Packet
 from net.packets.opcodes import CRecvOps, CSendOps
 from net.packets.packet import packet_handler
@@ -18,7 +19,7 @@ class WvsLogin(ServerBase):
 
     def __init__(self, parent):
         super().__init__(parent, LOGIN_PORT, 'LoginServer')
-
+        
         self._worlds = []
         self._auto_register = AUTO_REGISDTER
         self._request_pin = REQUEST_PIN
@@ -33,7 +34,6 @@ class WvsLogin(ServerBase):
     @classmethod
     async def run(cls, parent):
         login = WvsLogin(parent)
-
         await login.start()
 
         return login
@@ -52,13 +52,13 @@ class WvsLogin(ServerBase):
 
     async def login(self, client, username: str, password: str):
 
-        account = await self.data.login(username, password)
+        resp, account = await self.data.account.login(username, password)
 
-        if not account['resp']:
-            client.account = Account(**account['account'])
+        if not resp:
+            client.account = Account(**account)
             return 0
 
-        return account['resp']
+        return resp
 
     @packet_handler(CRecvOps.CP_CheckPassword)
     async def check_password(self, client, packet):

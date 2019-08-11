@@ -1,16 +1,16 @@
 import signal
 
 from asyncio import get_event_loop, create_task, Event, Task
-# from loguru import logger
+from configparser import ConfigParser
 
 from . import World, WvsGame, WvsLogin, WvsShop
-from web import HTTPClient
+from db import DatabaseClient
+from web_api import HTTPClient
 from utils.tools import wakeup
-from net.packets.opcodes import InterOps
 from net.packets.packet import packet_handler, Packet
 from utils import log, logger
 from client import WvsCenterClient
-from common.constants import (HOST_IP, GAME_PORT, USE_DATABASE,
+from common.constants import (GAME_PORT, USE_DATABASE,
     USE_HTTP_API, WORLD_COUNT, CHANNEL_COUNT)
 
 
@@ -41,6 +41,26 @@ class ServerApp:
         self._shop = None
         self._worlds = []
 
+        if USE_DATABASE:
+            self._load_config()
+
+    def _load_config(self):
+        self._config = ConfigParser()
+        self._config.read('config.ini')
+        if len(self._config.sections()) < 1:
+            self._make_config()
+
+    def _make_config(self):
+        print("Configure DB Connection...")
+        self._config['database'] = {}
+        self._config['database']['user'] = input("DB User: ")
+        self._config['database']['password'] = input("DB Password: ")
+        self._config['database']['host'] = input("DB Host: ")
+        self._config['database']['port'] = input("DB Port: ")
+        self._config['database']['database'] = input("DB Name: ")
+        with open("config.ini", "w") as config:
+            self._config.write(config)
+
     @classmethod
     def run(cls):
         self = ServerApp()
@@ -64,6 +84,7 @@ class ServerApp:
 
         except KeyboardInterrupt:
             log.warning(f"{self.name} Received signal to terminate event loop")
+            loop.run_until_complete(self.data.stop())
 
         finally:
             future.remove_done_callback(stop_loop_on_completion)
@@ -73,12 +94,16 @@ class ServerApp:
     async def start(self):
         log.info("Initializing Server")
 
-        if USE_HTTP_API:
+        if USE_DATABASE:
+            log.info("Setting up Database Client")
+            self.data = DatabaseClient(self._loop, **self._config['database'])
+            await self.data.start()
+
+        elif USE_HTTP_API:
             log.info("Setup HTTP Client")
             self.data = HTTPClient(loop=self._loop)
 
         channel_port = GAME_PORT
-
         self.login = await WvsLogin.run(self)
 
         for world_id in range(WORLD_COUNT):
