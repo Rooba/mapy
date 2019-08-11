@@ -1,16 +1,5 @@
 from enum import Enum
 
-class ServerType(Enum):
-    center =    0x00
-    login =     0x01
-    channel =   0x02
-    shop =      0x03
-
-class ServerRegistrationResponse(Enum):
-    Valid =         0x00
-    InvalidType =   0x01
-    InvalidCode =   0x02
-    Full =          0x03
 
 class Worlds(Enum):
     Scania  =   0
@@ -33,8 +22,18 @@ class Worlds(Enum):
     Croa    =   18
     Medere  =   19
 
+
 class WorldFlag(Enum):
     Null =  0x00
     Event = 0x01
     New =   0x02
     Hot =   0x03
+
+
+class InventoryType(Enum):
+    tracker = 0x0
+    equip = 0x1
+    consume = 0x2
+    install = 0x3
+    etc = 0x4
+    cash = 0x5

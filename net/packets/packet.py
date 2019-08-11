@@ -167,8 +167,7 @@ class Packet(ByteBuffer):
         Which enum to try to get the op_code from
     
     """
-    def __init__(self, data=None, op_code=None, op_codes=None):
-        self.op_codes = op_codes
+    def __init__(self, data=None, op_code=None):
 
         if data == None:
             data = b''
@@ -184,58 +183,56 @@ class Packet(ByteBuffer):
             else:
                 self.encode_short(self.op_code.value)
             
-        else:
-            if self.op_codes == CRecvOps:
+            return 
 
-                type_ = self.decode_byte()
-                try:
-                    self.op_code = self.op_codes(self.decode_short())
-                except ValueError:
-                    self.op_code = None
-                
-                if not self.op_code:
-                    self.seek(0)
-                    self.op_code = self.op_codes(self.decode_short())
-                    return
+        # For debug string, giving whether byte, short, int
+        # long, or string
+        seg_type = self.decode_byte()
 
-                packet = Packet(op_code = self.op_code)
-                i = len(data) - 3
+        try:
+            self.op_code = CRecvOps(self.decode_short())
+        
+        except ValueError:
+            # Not using debug packets in client, use default
+            self.seek(0)
+            self.op_code = CRecvOps(self.decode_short())
+            return 
 
-                while i > 0:
-                    type_ = self.decode_byte()
+        packet = Packet(op_code = self.op_code)
+        i = len(data) - 3
 
-                    if type_ == 1:
-                        packet.encode_byte(self.decode_byte())
-                        i -= 2
-                    
-                    elif type_ == 2:
-                        packet.encode_short(self.decode_short())
-                        i -= 3
-                    
-                    elif type_ == 4:
-                        packet.encode_int(self.decode_int())
-                        i -= 5
-                    
-                    elif type_ % 8 == 0:
-                        num = int(type_ / 8)
+        while i > 0:
+            seg_type = self.decode_byte()
 
-                        for _ in range(num):
-                            packet.encode_long(self.decode_long())
-                        
-                        i -= 1 + (8 * num)
-
-                    elif type_ == 10:
-                        str_ = self.decode_string()
-                        packet.encode_string(str_)
-                        i -= (len(str_) + 3)
-                
-
-                super().__init__(packet.getvalue())
-                self.seek(2)
-                self._debug_string = packet._debug_string
+            if seg_type == 1:
+                packet.encode_byte(self.decode_byte())
+                i -= 2
             
-            else:
-                self.op_code = self.op_codes(self.decode_short())
+            elif seg_type == 2:
+                packet.encode_short(self.decode_short())
+                i -= 3
+            
+            elif seg_type == 4:
+                packet.encode_int(self.decode_int())
+                i -= 5
+            
+            elif seg_type % 8 == 0:
+                num = int(seg_type / 8)
+
+                for _ in range(num):
+                    packet.encode_long(self.decode_long())
+                
+                i -= 1 + (8 * num)
+
+            elif seg_type == 10:
+                str_ = self.decode_string()
+                packet.encode_string(str_)
+                i -= (len(str_) + 3)
+        
+
+        super().__init__(packet.getvalue())
+        self.seek(2)
+        self._debug_string = packet._debug_string
 
     @property
     def name(self):

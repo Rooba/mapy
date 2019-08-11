@@ -57,7 +57,7 @@ class ItemSlotEquip(ItemSlotBase):
     def __init__(self, item_id=None, cisn=None, expire=None, 
                 inventory_item_id=None, **kwargs) -> object:
         super().__init__(item_id=item_id, cisn=cisn, expire=expire, 
-                inventory_item_id=inventory_item_id)
+                        inventory_item_id=inventory_item_id)
 
         self.req_job = kwargs.get('req_job', [0])
 
@@ -143,7 +143,7 @@ class ItemSlotEquip(ItemSlotBase):
         packet.encode_short(self.socket_1)
         packet.encode_short(self.socket_2)
         
-        if not self.cash_item_sn:
+        if not self.cisn:
             packet.encode_long(self.lisn)
     
         packet.encode_long(150841440000000000)

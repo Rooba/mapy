@@ -2,6 +2,7 @@ HOST_IP = "127.0.0.1"
 CENTER_PORT = 8383
 LOGIN_PORT = 8484
 GAME_PORT = 8585
+# if there are 20 worlds with 20 channels they will collide with 8787, future thought
 SHOP_PORT = 8787
 
 USE_DATABASE = False

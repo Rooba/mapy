@@ -59,8 +59,9 @@ class ClientSocket:
 
         return buf
 
-    def get_packet_length(self, headerint):
+    @staticmethod
+    def get_packet_length(headerint):
         packetlength = (headerint >> 16) ^ (headerint & 0xFFFF)
-        packetlength = ((packetlength << 8) & 0xFF00) | (
-            (packetlength >> 8) & 0xFF)
+        packetlength = ((packetlength << 8) & 0xFF00)\
+                        | ((packetlength >> 8) & 0xFF)
         return packetlength

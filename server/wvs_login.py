@@ -1,108 +1,42 @@
 import asyncio
 
-from loguru import logger
-
 from client import WvsLoginClient
 from client.entities import Account, Character
 from client.entities.inventory import InventoryType
 from common.constants import (
-    AUTO_LOGIN, AUTO_REGISDTER, CENTER_KEY, CENTER_PORT, HOST_IP, LOGIN_PORT,
+    AUTO_LOGIN, AUTO_REGISDTER, CENTER_PORT, HOST_IP, LOGIN_PORT,
     MAX_CHARACTERS, REQUEST_PIC, REQUEST_PIN, REQUIRE_STAFF_IP, WORLD_COUNT,
     get_job_from_creation)
-from common.enum import ServerRegistrationResponse
 from net.packets import Packet
-from net.packets.opcodes import CRecvOps, CSendOps, InterOps
+from net.packets.opcodes import CRecvOps, CSendOps
 from net.packets.packet import packet_handler
-from server._wvs_login import CenterServer, Channel, World
 from server.server_base import ServerBase
 from utils.cpacket import CPacket
 
 
 class WvsLogin(ServerBase):
-    __opcodes__ = CRecvOps
 
-    def __init__(self):
-        super().__init__('LoginServer')
+    def __init__(self, parent):
+        super().__init__(parent, LOGIN_PORT, 'LoginServer')
 
-        self._center = CenterServer
-
-        self._security_key = CENTER_KEY
         self._worlds = []
         self._auto_register = AUTO_REGISDTER
         self._request_pin = REQUEST_PIN
-        self._request_PIC = REQUEST_PIC
+        self._request_pic = REQUEST_PIC
         self._require_staff_ip = REQUIRE_STAFF_IP
         self._max_characters = MAX_CHARACTERS
         self._login_pool = []
 
-        # for i in range(WORLD_COUNT):
-        #     self._worlds.append(World(i + 1))
-        self._worlds.append(World(0))
-        self._worlds.append(World(1))
+    def add_world(self, world):
+        self._worlds.append(world)
 
-    def run(self):
-        super().run(LOGIN_PORT)
+    @classmethod
+    async def run(cls, parent):
+        login = WvsLogin(parent)
 
-    ##
-    # InterOps
-    ##
+        await login.start()
 
-    @packet_handler(InterOps.RegistrationResponse)
-    async def registration_response(self, client, packet):
-        """CenterServer reponse to requesting verification"""
-
-        response = ServerRegistrationResponse(packet.decode_byte())
-
-        if response == ServerRegistrationResponse.Valid:
-            self._loop.create_task(self.listen())
-
-            logger.info("Registered Login Server")
-
-        else:
-            logger.error(
-                f"Failed to register Login Server [{response.name}]")
-
-            self.is_alive = False
-
-    @packet_handler(InterOps.UpdateChannel)
-    async def update_channel(self, client, packet):
-        world_id = packet.decode_byte()
-        add = packet.decode_bool()
-        world = self._worlds[world_id]
-
-        if add:
-            world._channels.append(Channel(packet))
-
-        else:
-            channel_id = packet.decode_byte()
-            world._channels.pop(channel_id)
-
-    @packet_handler(InterOps.UpdateChannelPopulation)
-    async def update_channel_population(self, client, packet):
-        world_id = packet.decode_byte()
-        channel_id = packet.decode_byte()
-
-        self._worlds[world_id]\
-            ._channels[channel_id].population = packet.decode_int()
-
-    async def is_name_taken(self, name):
-        pass
-
-    @packet_handler(InterOps.CharacterEntriesResponse)
-    async def get_characters(self, client, packet):
-        pass
-
-    @packet_handler(InterOps.CharacterCreationResponse)
-    async def create_character(self, client, packet):
-        pass
-
-    @packet_handler(InterOps.MigrationRegisterResponse)
-    async def migrate(self, client, packet):
-        pass
-
-    ##
-    # End InterOps
-    ##
+        return login
 
     async def client_connect(self, client):
         return WvsLoginClient(self, client)
@@ -225,10 +159,6 @@ class WvsLogin(ServerBase):
         invs.add(shoes, slot=-7)
         invs.add(weapon, slot=-11)
         
-        # invs.add(await self.data.get_item(packet.decode_int()), slot=-5)
-        # invs.add(await self.data.get_item(packet.decode_int()), slot=-6)
-        # invs.add(await self.data.get_item(packet.decode_int()), slot=-7)
-        # invs.add(await self.data.get_item(packet.decode_int()), slot=-11)
         character.gender = packet.decode_byte()
 
         response = await self.data.\

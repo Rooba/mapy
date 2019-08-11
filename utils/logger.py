@@ -1,5 +1,6 @@
 from loguru import logger
-from re import sub
+from re import sub, search, IGNORECASE, compile
+from sys import stderr
 
 def filter_packets(record): 
     return record['level'] not in ["INPACKET", "OUTPACKET"]
@@ -15,23 +16,71 @@ def packet(message, bound):
 
 logger.packet = packet
 
+logger.remove()
+
+def setup_logger():
+    def main_formatter(record):
+        match_message = search(r"^(?P<server>(?P<name>LoginServer|GameServer)(?P<game>\((?P<world_id>\d)\)\((?P<channel_id>\d)\))?)\s(?P<message>.+)", record['message'], IGNORECASE)
+
+        if match_message:
+            if match_message.group("game"):
+                message = make_string(match_message.group("message"))
+                server_name = f"<r>[</r><w>{match_message.group('name')}(<ly>{match_message.group('world_id')}</ly>)(<lg>{match_message.group('channel_id')}</lg>)</w><r>]</r>"
+
+            else:
+                message = make_string(match_message.group("message"))
+                server_name = f"<r>[</r><w>{match_message.group('name')}</w><r>]</r>"
+        
+        else:
+            server_name = "<r>[</r><w>ServerApp</w><r>]</r>"
+            message = make_string(record['message'])
+
+        string = f"<lg>[</lg><level>{record['level']:^12}</level><lg>]</lg> {server_name} <level>{message}</level>"
+        return string + "\n"
+
+    logger.add(stderr, filter=filter_packets, colorize=True, format=main_formatter, diagnose=True)
+
+    def in_packet_formatter(record):
+        match_packet = search(r"(?P<opcode>[A-Za-z0-9\._]+)\s(?P<ip>[0-9\.]+)\s(?P<packet>[A-Z0-9\-&\^\|\#@~\s]*)", record['message'])
+        matches = [*match_packet.group(1, 2, 3)]
+        matches[2] = make_string(matches[2])
+
+        string = f"<lg>[</lg><level>{'INPACKET':^12}</level><lg>]</lg> "
+        string += f"<r>[</r><level>{matches[0]}</level><r>]</r> <g>[</g>{matches[1]}<g>]</g> <w>{matches[2]}</w>"
+        return string + "\n"
+    
+    def out_packet_formatter(record):
+        match_packet = search(r"(?P<opcode>[A-Za-z0-9\._]+)\s(?P<ip>[0-9\.]+)\s(?P<packet>[A-Z0-9\-&\^\|\#@~\s]*)", record['message'])
+        matches = [*match_packet.group(1, 2, 3)]
+        matches[2] = make_string(matches[2])
+
+        string = f"<lg>[</lg><level>{'OUTPACKET':^12}</level><lg>]</lg> "
+        string += f"<r>[</r><level>{matches[0]}</level><r>]</r> <g>[</g>{matches[1]}<g>]</g> <w>{matches[2]}</w>"
+        return string + "\n"
+
+    logger.level('INPACKET', 50, color="<c>")
+    logger.add(stderr, colorize=True, level="INPACKET", filter=filter_bound_in, format=in_packet_formatter)
+    
+    logger.level('OUTPACKET', 50, color="<lm>")
+    logger.add(stderr, colorize=True, level="OUTPACKET", filter=filter_bound_out, format=out_packet_formatter)
+
 def make_string(message):
     main_formatters = (
-        ('r',  ( '\|', '\|')),
-        ('lr', ( '\|', '&' )),
+        ('r',  ( r'\|', r'\|')),
+        ('lr', ( r'\|', '&' )),
         ('c',  ( '~',  '~' )),
         ('lc', ( '~',  '&' )),
         ('y',  ( '#',  '#' )),
         ('ly', ('#',   '&' )),
-        ('g',  ('\^', '\^' )),
-        ('lg', ('\^',  '&' )),
+        ('g',  (r'\^', r'\^' )),
+        ('lg', (r'\^',  '&' )),
         ('m',  ('@',   '@' )),
         ('lm', ('@',   '&' ))
         )
-    replacers = ")[A-Za-z0-9\s]+(?P<tail>"
+    replacers = r")[A-Za-z0-9\s]+(?P<tail>"
 
     i = 1
-    for key, pair in main_formatters:
+    for _, pair in main_formatters:
         replacers = pair[0] + replacers + pair[1]
         if len(main_formatters) > i:
             replacers = "|" + replacers + "|"
@@ -60,6 +109,8 @@ def make_string(message):
 
         return str_
     
-    reg_str = f"\s?(?P<left_start><level>)?(?P<inner_content>[a-zA-Z0-9\s\[\]\_\-\.]+)?(?P<left_end></level>)?(?P<outer_content>[a-zA-Z0-9\s\[\]\_\-\.]+)?\-\-(?P<find>(?P<head>{replacers}))\s?"
+    reg_str = fr"\s?(?P<left_start><level>)?(?P<inner_content>[a-zA-Z0-9\s\[\]\_\-\.]+)?(?P<left_end></level>)?(?P<outer_content>[a-zA-Z0-9\s\[\]\_\-\.]+)?\-\-(?P<find>(?P<head>{replacers}))\s?"
     repl_str = sub(reg_str, ret, message)
     return repl_str
+
+setup_logger()

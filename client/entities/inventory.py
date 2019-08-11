@@ -1,17 +1,8 @@
-from enum import Enum
 from typing import Union
 
 from common import abc
+from common.enum import InventoryType
 from . import item as Item
-
-
-class InventoryType(Enum):
-    tracker = 0x0
-    equip = 0x1
-    consume = 0x2
-    install = 0x3
-    etc = 0x4
-    cash = 0x5
 
 
 class InventoryManager(abc.Serializable):
@@ -65,7 +56,7 @@ class Tracker(abc.Serializable):
         # Update on item removal or do on logout?
         tracker['throwaway'] = self.get_throwaway()
 
-        for inv_type, inventory in self.items.items():
+        for _, inventory in self.items.items():
             for index, item in inventory.items():
                 tracker['insert_update'][index] = item.__dict__
 
@@ -77,8 +68,8 @@ class Tracker(abc.Serializable):
     def get_throwaway(self):
         throwaway = []
 
-        for inv_type, inv in self.items.items():
-            for index, item in inv.items():
+        for _, inv in self.items.items():
+            for _, item in inv.items():
                 if not item:
                     continue
                 
@@ -90,8 +81,8 @@ class Tracker(abc.Serializable):
         return throwaway
 
     def copy(self, *inventories):
-        for key, inventory in inventories:
-            for index, item in inventory.items():
+        for _, inventory in inventories:
+            for _, item in inventory.items():
                 if item:
                     self._starting.append(item.inventory_item_id)
 
