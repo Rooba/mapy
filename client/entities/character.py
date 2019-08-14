@@ -53,9 +53,10 @@ class Character(abc.Serializable):
 
     @staticmethod
     def from_data(**data):
+        inventory = data.pop('inventory')
         character = Character(**data)
 
-        for key, inv in data.get('inventories').items():
+        for key, inv in inventory.items():
             key = int(key)
             for position, item_data in inv.items():
                 position = int(position)

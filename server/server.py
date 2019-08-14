@@ -38,8 +38,8 @@ class ServerApp:
         self._clients = []
 
         self.login = None
-        self._shop = None
-        self._worlds = []
+        self.shop = None
+        self.worlds = []
 
         if USE_DATABASE:
             self._load_config()
@@ -114,7 +114,7 @@ class ServerApp:
                 world.add_channel(channel)
                 channel_port += 1
 
-            self._worlds.append(world)
+            self.worlds.append(world)
             self.login.add_world(world)
 
         await wakeup()

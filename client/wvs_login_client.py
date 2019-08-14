@@ -33,8 +33,8 @@ class WvsLoginClient(ClientBase):
         return ret
 
     async def load_avatars(self, world_id=None):
-        self.avatars = await self.data.get_characters(
-            self.account.id, world_id=world_id)
+        self.avatars = await self.data\
+            .account(id=self.account.id).get_characters(world_id=world_id)
 
     @property
     def account_id(self):

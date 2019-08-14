@@ -52,10 +52,11 @@ class WvsLogin(ServerBase):
 
     async def login(self, client, username: str, password: str):
 
-        resp, account = await self.data.account.login(username, password)
+        resp, account = await self.data.\
+            account(username=username, password=password).login()
 
         if not resp:
-            client.account = Account(**account)
+            client.account = account
             return 0
 
         return resp
@@ -64,16 +65,14 @@ class WvsLogin(ServerBase):
     async def check_password(self, client, packet):
         password = packet.decode_string()
         username = packet.decode_string()
-
         response = await client.login(username, password)
 
         if not response:
-            await client.send_packet(
+            return await client.send_packet(
                 CPacket.check_password_result(client, response))
 
-        else:
-            await client.send_packet(
-                CPacket.check_password_result(response=response))
+        await client.send_packet(
+            CPacket.check_password_result(response=response))
 
     async def send_world_information(self, client) -> None:
         for world in self._worlds:

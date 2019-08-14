@@ -70,6 +70,10 @@ class SQLOperator:
     @classmethod
     def in_(cls):
         return cls('=', 'in', '{column} {operator} any({value})')
+    
+    @classmethod
+    def in__(cls):
+        return cls('IN', 'in', '{column} {operator} ({value})')
 
     @classmethod
     def is_(cls):
@@ -208,6 +212,10 @@ class Column:
             min_value=minvalue, max_value=maxvalue)
 
     def in_(self, value):
+        if isinstance(value, Column):
+            return SQLComparison(
+                SQLOperator.in__(), self.aggregate, self.full_name, value)
+        
         return SQLComparison(
             SQLOperator.in_(), self.aggregate, self.full_name, value)
 
@@ -547,6 +555,7 @@ class SQLConditions:
         self._parent = parent
         self.where_conditions = []
         self.having_conditions = []
+        self._queued_conditions = []
         self.values = []
         self.add = self.add_having if allow_having \
             else self.add_conditions
@@ -625,14 +634,20 @@ class SQLConditions:
             return condition_strings
         cond_list.extend(make_string(*conditions))
 
-    def add_conditions(self, *conditions, **kwarg_conditions):
-        if kwarg_conditions:
-            k_conds = self.process_dict_conditions(kwarg_conditions)
-            k_conds.extend(conditions)
-            conditions = k_conds
-        where, having = self.sort_conditions(*conditions)
-        self.submit_conditions(*where)
-        self.submit_conditions(*having, having=True)
+    def add_conditions(self):
+        for conditions, kwarg_conditions in self._queued_conditions:
+            if kwarg_conditions:
+                k_conds = self.process_dict_conditions(kwarg_conditions)
+                k_conds.extend(conditions)
+                conditions = k_conds
+            where, having = self.sort_conditions(*conditions)
+            self.submit_conditions(*where)
+            self.submit_conditions(*having, having=True)
+        
+        return self._parent
+
+    def queue_conditions(self, *conditions, **kwargs_conditions):
+        self._queued_conditions.append((conditions, kwargs_conditions))
         return self._parent
 
     def add_having(self, *conditions):
@@ -644,12 +659,13 @@ class SQLConditions:
             k_conds = self.process_dict_conditions(kwarg_conditions)
             k_conds.extend(conditions)
             conditions = tuple(k_conds)
-        return self.add_conditions(conditions)
+        return self.queue_conditions(conditions)
 
 class Query:
     """Builds a database query."""
     def __init__(self, db, *tables):
         self._db = db
+        self._with = []
         self._select = ['*']
         self._distinct = False
         self._group_by = []
@@ -661,9 +677,20 @@ class Query:
         
         self._limit = None
         self._offset = None
+        self._inner_join = None
         self.conditions = SQLConditions(parent=self)
-        self.where = self.conditions.add_conditions
+        self.where = self.conditions.queue_conditions
         self.having = self.conditions.add_having
+
+    def with_(self, *withs):
+        for name, statement in withs:
+            statement.conditions._count_token = self.conditions._count_token
+
+            self._with.append([name, statement.sql(raw=True)])
+            self.conditions.values.extend(statement.conditions.values)
+            self.conditions._count_token += statement.conditions._count_token
+        
+        return self
 
     def select(self, *columns, distinct=False):
         self._select = []
@@ -730,12 +757,23 @@ class Query:
 
     def offset(self, number=None):
         if not isinstance(number, (int, type(None))):
-            raise TypeError("Method 'limit' only accepts an int argument.")
+            raise TypeError("Method 'offset' only accepts an int argument.")
         self._offset = number
         return self
 
-    def sql(self, delete=False):
+    def inner_join(self, table_name, key):
+        if not isinstance(key, str):
+            raise TypeError("Method 'using' only accepts a string argument.")
+        
+        self._inner_join = [table_name, key]
+        return self
+
+    def sql(self, delete=False, raw=False):
         sql = []
+        if self._with:
+            sql.append("WITH")
+            sql.append(", ".join(f"{name} AS ({statement})" for name, statement in self._with))
+        
         if delete:
             sql.append("DELETE")
         else:
@@ -747,6 +785,10 @@ class Query:
                 sql.append(f"{select_str} {', '.join(select_names)}")
         table_names = [t.full_name for t in self._from]
         sql.append(f"FROM {', '.join(table_names)}")
+        if self._inner_join:
+            sql.append(f"INNER JOIN {self._inner_join[0]} USING ({self._inner_join[1]}) ")
+        if self.conditions._queued_conditions:
+            self.conditions.add_conditions()
         if self.conditions.where_conditions:
             con_sql = self.conditions.where_conditions
             sql.append(f"WHERE {' AND '.join(con_sql)}")
@@ -761,7 +803,10 @@ class Query:
             sql.append(f"LIMIT {self._limit}")
         if self._offset:
             sql.append(f"OFFSET {self._offset}")
-        return (f"{' '.join(sql)};", self.conditions.values)
+        
+        if not raw:
+            return (f"{' '.join(sql)};", self.conditions.values)
+        return f"{' '.join(sql)}"
 
     async def delete(self, **conditions):
         if conditions:
