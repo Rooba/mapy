@@ -51,25 +51,6 @@ class Character(abc.Serializable):
 
         self.inventories = InventoryManager()
 
-    @staticmethod
-    def from_data(**data):
-        inventory = data.pop('inventory')
-        character = Character(**data)
-
-        for key, inv in inventory.items():
-            key = int(key)
-            for position, item_data in inv.items():
-                position = int(position)
-
-                item = getattr(Item, Item.ItemInventoryTypes(key).name)(**item_data)
-
-                character.inventories.add(item, position)
-
-        character.inventories.tracker\
-            .copy(*character.inventories)
-
-        return character
-
     def encode_stats(self, packet):
         packet.encode_int(self.id)
         packet.encode_fixed_string(self.name, 13)

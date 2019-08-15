@@ -180,16 +180,16 @@ class Account:
     @get_acc
     async def login(self):
         if not self.account:
-            return (5, {})
+            return (5, None)
 
         if self.account.password != self.password:
-            return (4, {})
+            return (4, None)
         
         return (0, self.account)
 
     @get_acc
     async def get_characters(self, world_id=None):
-        characters = await self.characters.load()
+        characters = await self.characters.load(world_id=world_id)
 
         return characters
 
@@ -199,11 +199,15 @@ class Characters:
         self.db = db
         self.account_id = account_id
     
-    async def load(self):
+    async def load(self, world_id=None):
         
         ret = []
-        characters = await self.db.table('maplestory.characters').query()\
-            .where(account_id=self.account_id).order_by('id').get()
+        if not world_id:
+            characters = await self.db.table('maplestory.characters').query()\
+                .where(account_id=self.account_id).order_by('id').get()
+        else:
+            characters = await self.db.table('maplestory.characters').query()\
+                .where(account_id=self.account_id, world_id=world_id).order_by('id').get()
 
         for character in characters:
             character = Character(**character)
