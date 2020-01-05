@@ -190,6 +190,14 @@ class Column:
         return SQLComparison(
             SQLOperator.ge(), self.aggregate, self.full_name, value)
 
+    def __contains__(self, value):
+        if isinstance(value, Column):
+            return SQLComparison(
+                SQLOperator.in__(), self.aggregate, self.full_name, value)
+        
+        return SQLComparison(
+            SQLOperator.in_(), self.aggregate, self.full_name, value)
+
     def like(self, value):
         return SQLComparison(
             SQLOperator.like(), self.aggregate, self.full_name, value)
@@ -252,6 +260,44 @@ class Column:
 
         return ' '.join(sql)
 
+    @property
+    def count(self):
+        self.aggregate = 'COUNT'
+        return self
+
+    @property
+    def sum(self):
+        self.aggregate = 'SUM'
+        return self
+
+    @property
+    def avg(self):
+        self.aggregate = 'AVG'
+        return self
+
+    @property
+    def min(self):
+        self.aggregate = 'MIN'
+        return self
+
+    @property
+    def max(self):
+        self.aggregate = 'MAX'
+        return self
+
+    async def set(self, value):
+        if not self.table:
+            return None
+        data = dict(self.table.current_filter)
+        data[self.full_name] = value
+        return await self.table.upsert(**data)
+
+    async def get(self, **filters):
+        return await self.table.get(columns=self.name, **filters)
+
+    async def get_first(self, **filters):
+        return await self.table.get_first(column=self.name, **filters)
+
 
 class PrimaryKeyColumn(Column):
     def __init__(self, name=None, auto_increment=False, **kwargs):
@@ -292,6 +338,18 @@ class DecimalColumn(Column):
 class IntervalColumn(Column):
     def __init__(self, name, field=False, **kwargs):
         super().__init__(name, types.Interval(field), **kwargs)
+
+
+class ListArguments:
+    def __init__(self, args):
+        self._args = args
+    
+    def __len__(self):
+        return len(self._args)
+
+    def __contains__(self, column):
+        return SQLComparison(
+            SQLOperator.in_(), None, column.full_name, self._args)
 
 
 class TableAlter:
@@ -360,6 +418,7 @@ class TableAlter:
         for add in modes.get('added_indexes', []):
             stmts.append(f"CREATE INDEX IF NO EXISTS {add['index']}"\
                         f"ON {self.table.full_name} ({add['name']})")
+
 
 class Schema:
     __slots__ = ('name', 'db')
@@ -640,6 +699,7 @@ class SQLConditions:
                 k_conds = self.process_dict_conditions(kwarg_conditions)
                 k_conds.extend(conditions)
                 conditions = k_conds
+            
             where, having = self.sort_conditions(*conditions)
             self.submit_conditions(*where)
             self.submit_conditions(*having, having=True)
@@ -660,6 +720,7 @@ class SQLConditions:
             k_conds.extend(conditions)
             conditions = tuple(k_conds)
         return self.queue_conditions(conditions)
+
 
 class Query:
     """Builds a database query."""
@@ -689,7 +750,7 @@ class Query:
             self._with.append([name, statement.sql(raw=True)])
             self.conditions.values.extend(statement.conditions.values)
             self.conditions._count_token += statement.conditions._count_token
-        
+
         return self
 
     def select(self, *columns, distinct=False):
@@ -787,8 +848,10 @@ class Query:
         sql.append(f"FROM {', '.join(table_names)}")
         if self._inner_join:
             sql.append(f"INNER JOIN {self._inner_join[0]} USING ({self._inner_join[1]}) ")
+
         if self.conditions._queued_conditions:
             self.conditions.add_conditions()
+        
         if self.conditions.where_conditions:
             con_sql = self.conditions.where_conditions
             sql.append(f"WHERE {' AND '.join(con_sql)}")
@@ -806,6 +869,7 @@ class Query:
         
         if not raw:
             return (f"{' '.join(sql)};", self.conditions.values)
+        
         return f"{' '.join(sql)}"
 
     async def delete(self, **conditions):
@@ -855,6 +919,7 @@ class Query:
             return [next(row.values()) for row in data]
         else:
             raise QueryError("Query doesn't have a single column selected.")
+
 
 class Insert:
     """Insert data into database table."""
@@ -1042,6 +1107,7 @@ class Insert:
             self.row(**kwargs)
 
         return self
+
 
 class Update:
     """Update data in a database table."""

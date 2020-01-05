@@ -50,24 +50,13 @@ class WvsLogin(ServerBase):
             i_packet.seek(2)
             client.dispatch(i_packet)
 
-    async def login(self, client, username: str, password: str):
-
-        resp, account = await self.data.\
-            account(username=username, password=password).login()
-
-        if not resp:
-            client.account = account
-            return 0
-
-        return resp
-
     @packet_handler(CRecvOps.CP_CheckPassword)
     async def check_password(self, client, packet):
         password = packet.decode_string()
         username = packet.decode_string()
         response = await client.login(username, password)
 
-        if not response:
+        if response is 0:
             return await client.send_packet(
                 CPacket.check_password_result(client, response))
 
@@ -115,11 +104,11 @@ class WvsLogin(ServerBase):
 
     @packet_handler(CRecvOps.CP_CheckDuplicatedID)
     async def check_duplicated_id(self, client, packet):
-        username = packet.decode_string()
-        is_available = await self.data.is_username_taken(username)
+        name = packet.decode_string()
+        exists = await self.data.characters.get(name=name) is not None
 
         await client.send_packet(
-            CPacket.check_duplicated_id_result(username, is_available))
+            CPacket.check_duplicated_id_result(name, exists))
 
     @packet_handler(CRecvOps.CP_ViewAllChar)
     async def view_all_characters(self, client, packet):
@@ -146,12 +135,10 @@ class WvsLogin(ServerBase):
 
         invs = character.inventories
 
-        top = await self.data.get_item(packet.decode_int())
-        bottom = await self.data.get_item(packet.decode_int())
-        shoes = await self.data.get_item(packet.decode_int())
-        weapon = await self.data.get_item(packet.decode_int())
-
-        # print(top, bottom, shoes, weapon)
+        top = await self.data.items.get(packet.decode_int())
+        bottom = await self.data.items.get(packet.decode_int())
+        shoes = await self.data.items.get(packet.decode_int())
+        weapon = await self.data.items.get(packet.decode_int())
 
         invs.add(top, slot=-5)
         invs.add(bottom, slot=-6)
@@ -160,11 +147,12 @@ class WvsLogin(ServerBase):
         
         character.gender = packet.decode_byte()
 
-        response = await self.data.\
-            create_new_character(client.account.id, character)
+        character_id = await self.data.account(id=client.account.id)\
+            .create_character(character)
 
-        if response:
-            character.id = response
+        if character_id:
+            character.id = character_id
+            client.avatars.append(character)
 
             return await client.send_packet(
                 CPacket.create_new_character(character, False))

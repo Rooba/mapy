@@ -19,6 +19,9 @@ class InventoryManager(abc.Serializable):
     def __serialize__(self):
         return self.tracker.__serialize__()
 
+    def get_update(self):
+        return self.tracker.get_update()
+
     def get(self, inventory_type):
         
         if isinstance(inventory_type, InventoryType):
@@ -36,6 +39,7 @@ class InventoryManager(abc.Serializable):
         slots = inventory.add(item, slot)
 
         for slot, item in slots:
+            print(slot, item)
             self.tracker.insert(item, slot)
 
 
@@ -46,7 +50,7 @@ class Tracker(abc.Serializable):
 
         # Only update this on stat improvement, 
         # movement, or new item added
-        self.items = {i: {} for i in range(1, 6)}
+        self._items = {i: {} for i in range(1, 6)}
 
     def __serialize__(self):
         tracker = {
@@ -56,19 +60,30 @@ class Tracker(abc.Serializable):
         # Update on item removal or do on logout?
         tracker['throwaway'] = self.get_throwaway()
 
-        for _, inventory in self.items.items():
+        for _, inventory in self._items.items():
             for index, item in inventory.items():
                 tracker['insert_update'][index] = item.__dict__
 
         return tracker
 
     def insert(self, item, slot):
-        self.items[int(item.item_id / 1000000)][slot] = item
+        self._items[int(item.item_id / 1000000)][slot] = item
+
+    def get_update(self):
+        items = []
+        for inv_type, inventory in self._items.items():
+            for index, item in inventory.items():
+                item_ = {**item.__dict__}
+                item_['inventory_type'] = inv_type
+                item_['position'] = index
+                items.append(item_)
+        
+        return items
 
     def get_throwaway(self):
         throwaway = []
 
-        for _, inv in self.items.items():
+        for _, inv in self._items.items():
             for _, item in inv.items():
                 if not item:
                     continue
@@ -89,6 +104,7 @@ class Tracker(abc.Serializable):
 
 class Inventory(abc.Inventory):
     def __init__(self, type_, slots):
+        self._unique_id = None
         self.type = type_
         self.items = {i: None for i in range(1, slots + 1)}
         self._slots = slots

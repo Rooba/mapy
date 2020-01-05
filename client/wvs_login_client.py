@@ -25,16 +25,20 @@ class WvsLoginClient(ClientBase):
         self.avatars = []
 
     async def login(self, username, password):
-        ret = await self._parent.login(self, username, password)
+        response, account = await self.data.\
+            account(username=username, password=password).login()
 
-        if not ret:
+        if not response:
+            self.account = account
             self.logged_in = True
+            return 0
 
-        return ret
+        return response
 
     async def load_avatars(self, world_id=None):
         self.avatars = await self.data\
-            .account(id=self.account.id).get_characters(world_id=world_id)
+            .account(id=self.account.id)\
+                .get_characters(world_id=world_id)
 
     @property
     def account_id(self):

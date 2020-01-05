@@ -1,5 +1,4 @@
 def decrypt_transform(data):
-    # Go over this in debug, fix it
     for j in range(1, 7):
         remember = 0
         data_length = len(data) & 0xFF

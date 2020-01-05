@@ -6,8 +6,9 @@ from asyncpg.exceptions import InterfaceError
 from datetime import date
 
 from client.entities import Account as Acc, Character, item as Item
-from utils import log
-from .schema import Table, Query, Insert, Update, Schema, IntColumn
+from utils import log, get
+from .schema import Table, Query, Insert, Update, Schema, IntColumn, ListArguments
+from .structure import RMDB
 
 
 async def init_conn(conn):
@@ -29,6 +30,9 @@ class DatabaseClient:
         
         self.loop = loop
         self.dsn = f"postgres://{user}:{password}@{host}:{port}/{database}"
+        
+        # WZ Data
+        self._items = Items(self)
     
     async def start(self, loop=None):
         # try:
@@ -110,6 +114,14 @@ class DatabaseClient:
     def account(self, **kwargs):
         return Account(self, **kwargs)
 
+    @property
+    def characters(self):
+        return Characters(self, None)
+
+    @property
+    def items(self):
+        return self._items
+
 
 def get_acc(fn):
     def wrapper(self, **kwargs):
@@ -133,7 +145,7 @@ class Account:
                  creation=None, last_login=None, last_ip=None, ban=False,
                  admin=False, gender=None):
         
-        self.db = db
+        self._db = db
         self.id = id
         self.username = username
         self.password = password
@@ -146,10 +158,10 @@ class Account:
 
         # Should probably change `maplestory` to a constant var
         # as some may have a differently named schema
-        self.characters = Characters(self.db, id)
+        self.characters = Characters(self._db, id)
 
     async def get_account(self):
-        accounts = self.db.table('maplestory.accounts')
+        accounts = self._db.table('maplestory.accounts')
 
         if self.username:
             account = await accounts.query.where(username=self.username).get_first()
@@ -164,7 +176,7 @@ class Account:
 
     @get_acc
     async def register(self):
-        accounts = self.db.table('maplestory.accounts')
+        accounts = self._db.table('maplestory.accounts')
 
         if not self.account:
             await accounts.insert(
@@ -187,40 +199,42 @@ class Account:
         
         return (0, self.account)
 
-    @get_acc
     async def get_characters(self, world_id=None):
-        characters = await self.characters.load(world_id=world_id)
+        return await self.characters.load(world_id=world_id)
 
-        return characters
+    async def create_character(self, character):
+        return await self.characters.create(character)
 
 
 class Characters:
     def __init__(self, db, account_id):
-        self.db = db
+        self._db = db
         self.account_id = account_id
     
     async def load(self, world_id=None):
         
         ret = []
         if not world_id:
-            characters = await self.db.table('maplestory.characters').query()\
+            characters = await self._db.table('maplestory.characters').query()\
                 .where(account_id=self.account_id).order_by('id').get()
         else:
-            characters = await self.db.table('maplestory.characters').query()\
+            characters = await self._db.table('maplestory.characters').query()\
                 .where(account_id=self.account_id, world_id=world_id).order_by('id').get()
 
         for character in characters:
             character = Character(**character)
 
-            items = self.db.query('maplestory.inventory_items')\
+            items = self._db.query('maplestory.inventory_items')\
                 .where(character_id=character.id)\
-                
-            equips = self.db.query('maplestory.inventory_equipment', 'items')\
+            
+            items_item_id_column = IntColumn('items.inventory_item_id')
+            equip_item_id_column = IntColumn('inventory_equipment.inventory_item_id')
+
+            equips = self._db.query('maplestory.inventory_equipment', 'items')\
                 .select("inventory_equipment.*")\
-                    .where(IntColumn('inventory_equipment.inventory_item_id')\
-                        .in_(IntColumn('items.inventory_item_id')))
+                    .where(equip_item_id_column.in_(items_item_id_column))
     
-            inventory = await self.db.query().\
+            inventory = await self._db.query().\
                 with_(('items', items), ('equips', equips))\
                     .table('items').inner_join('equips', 'inventory_item_id').get()
 
@@ -237,5 +251,153 @@ class Characters:
         
         return ret
 
+    async def get(self, **search_by):
+        character = await self._db.table('maplestory.characters')\
+            .query()\
+                .where(**search_by)\
+                    .get_first()
+        
+        return character
+
     async def create(self, character):
-        pass
+        character_data = {**character.__dict__}
+        character_data['account_id'] = self.account_id
+        character_data.pop('id')
+        inventories = character_data.pop('inventories')
+
+        character_id = await self._db.table('maplestory.characters')\
+            .insert(**character_data)\
+                .primaries('name')\
+                    .returning('characters.id')\
+                        .commit()
+
+        if character_id:
+            character_id = character_id[0]['id']
+            await self.update_inventory(character_id, inventories)
+
+        return character_id
+        
+    async def update_inventory(self, character_id, inventories):
+        items_columns = await self._db.table('maplestory.inventory_items').columns.get_names()
+
+        equips_columns = await self._db.table('maplestory.inventory_equipment').columns.get_names()
+
+        items = inventories.get_update()
+
+        for item in items:
+            item_data = dict()
+            for column_name in items_columns:
+                value = item.get(column_name)
+                if value is None:
+                    continue
+                
+                item_data[column_name] = value
+            
+            item_data['character_id'] = character_id
+
+            inv_item_id = await self._db.table('maplestory.inventory_items')\
+                .insert(**item_data)\
+                    .primaries('inventory_item_id')\
+                        .returning('inventory_items.inventory_item_id')\
+                            .commit(do_update=True)
+            inv_item_id = inv_item_id[0]['inventory_item_id']
+            
+            if item['inventory_type'] == 1:
+                equip_data = dict()
+                for column_name in equips_columns:
+                    value = item.get(column_name)
+                    if value is None:
+                        continue
+
+                    equip_data[column_name] = item.get(column_name)
+
+                equip_data['inventory_item_id'] = inv_item_id
+
+                await self._db.table('maplestory.inventory_equipment')\
+                    .insert(**equip_data)\
+                        .primaries('inventory_item_id')\
+                            .commit(do_update=True)
+
+
+class Items:
+    def __init__(self, db):
+        self._db = db
+        self._cached_items = []
+
+    async def get_many(self, *item_ids):
+        item_ids = list(item_ids)
+        pre_cached = [item for item in self._cached_items if item.item_id in item_ids]
+        if len(pre_cached) == len(item_ids):
+            return pre_cached
+        
+        if len(pre_cached):
+            for item in pre_cached:
+                if item.item_id in item_ids:
+                    item_ids.remove(item.item_id)
+
+        def get_type(type_):
+            copy = item_ids[:]
+            return ListArguments([item_ids.pop(i) for i, id in enumerate(copy) if int(id / 1000000) is type_])
+        
+        inv_type = {
+            1: 'equip',
+        #     20: 'consumeable',
+        #     21: 'rechargeable',
+        #     3: None,
+        #     4: None,
+        #     50: 'pet',
+        #     51: None
+        }.get()
+
+        items = []
+
+        for k, v in inv_type.items():
+            specific = get_type(k)
+            if not len(specific):
+                continue
+            
+            query = self._db.query('rmdb.item_data')\
+                .select(*RMDB.ITEM_DATA.columns)
+
+            if v is not None:
+                query.inner_join(f'rmdb.item_{v}_data', 'item_id')\
+                    .where(IntColumn('item_id') in specific)
+            
+            fetched_items = await query.get()
+
+            for fetched_item in fetched_items:
+                cleaned_item = {}
+                for k, v in fetched_item.items():
+                    if v:
+                        cleaned_item[k] = v
+                
+                item = getattr(Item, Item.ItemInventoryTypes(k).name)(**cleaned_item)
+                items.append(item)
+                self._cached_items.append(item)
+        
+        items.extend(pre_cached)
+        return items
+
+    async def get(self, item_id):
+        pre_cached = get(self._cached_items, item_id=item_id)
+        if pre_cached:
+            return pre_cached
+
+        query = self._db.query('rmdb.item_data')
+        item_type = int(item_id / 1000000)
+
+        if item_type is 1:
+            query.inner_join('rmdb.item_equip_data', 'item_id')\
+                .where(item_id=item_id)
+        
+        fetched_item = await query.get_first()
+        cleaned_item = {}
+
+        for key, value in fetched_item.items():
+            if value is not None:
+                cleaned_item[key] = value
+
+        item = getattr(Item, Item.ItemInventoryTypes(item_type).name)(**cleaned_item)
+        self._cached_items.append(item)
+        return item
+

@@ -12,14 +12,13 @@ class WvsGame(ServerBase):
         self.world_name = Worlds(world_id).name
         self.channel_id = channel_id
 
-        # Fill this in with 
         self.ticker_message = ""
         self.allow_multi_leveling = False
-        self.exp_rate = 1
+        self.exp_rate = int(parent._config[self.world_name]['exp_rate'])
         self.quest_exp_rate = 1
         self.party_quest_exp_rate = 1
-        self.meso_rate = 1
-        self.drop_rate = 1
+        self.meso_rate = int(parent._config[self.world_name]['meso_rate'])
+        self.drop_rate = int(parent._config[self.world_name]['drop_rate'])
 
     @classmethod
     async def run(cls, parent, port, world_id, channel_id):
@@ -28,3 +27,14 @@ class WvsGame(ServerBase):
         await login.start()
 
         return login
+
+    @packet_handler(CRecvOps.CP_MigrateIn)
+    async def handle_migrate_in(self, client, packet):
+        character_id = packet.decode_int()
+        machine_id = packet.decode_buffer(16)
+        is_gm = packet.decode_byte()
+        packet.decode_byte()
+        session_id = packet.decode_long()
+
+        
+

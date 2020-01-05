@@ -145,6 +145,9 @@ class ByteBuffer(BytesIO):
     def decode_long(self):
         return (int).from_bytes(self.read(8), 'little')
 
+    def decode_buffer(self, size):
+        return (int).from_bytes(self.read(size), 'little')
+
     def decode_string(self):
         length = (int).from_bytes(self.read(2), 'little')
         string = ""
