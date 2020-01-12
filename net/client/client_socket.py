@@ -1,5 +1,6 @@
 from io import BytesIO
 from random import randint
+from socket import SHUT_RD
 
 from asyncio import create_task, Lock, get_event_loop
 
@@ -23,6 +24,7 @@ class ClientSocket:
 
     def close(self):
         return self._socket.close()
+        # return self._socket.shutdown(SHUT_RD)
 
     async def sock_recv(self):
         return await self._loop.sock_recv(self._socket, self.recieve_size)

@@ -1,6 +1,6 @@
 from loguru import logger
 from re import sub, search, IGNORECASE, compile
-from sys import stderr
+from sys import stdout
 
 def filter_packets(record): 
     return record['level'] not in ["INPACKET", "OUTPACKET"]
@@ -32,13 +32,13 @@ def setup_logger():
                 server_name = f"<r>[</r><w>{match_message.group('name')}</w><r>]</r>"
         
         else:
-            server_name = "<r>[</r><w>ServerApp</w><r>]</r>"
+            server_name = "<r>[</r>ServerApp<r>]</r>"
             message = make_string(record['message'])
 
         string = f"<lg>[</lg><level>{record['level']:^12}</level><lg>]</lg> {server_name} <level>{message}</level>"
         return string + "\n"
 
-    logger.add(stderr, filter=filter_packets, colorize=True, format=main_formatter, diagnose=True)
+    logger.add(stdout, filter=filter_packets, colorize=True, format=main_formatter, diagnose=True)
 
     def in_packet_formatter(record):
         match_packet = search(r"(?P<opcode>[A-Za-z0-9\._]+)\s(?P<ip>[0-9\.]+)\s(?P<packet>[A-Z0-9\-&\^\|\#@~\s]*)", record['message'])
@@ -58,11 +58,11 @@ def setup_logger():
         string += f"<r>[</r><level>{matches[0]}</level><r>]</r> <g>[</g>{matches[1]}<g>]</g> <w>{matches[2]}</w>"
         return string + "\n"
 
-    logger.level('INPACKET', 50, color="<c>")
-    logger.add(stderr, colorize=True, level="INPACKET", filter=filter_bound_in, format=in_packet_formatter)
+    logger.level('INPACKET', 0, color="<c>")
+    logger.add(stdout, colorize=True, level="INPACKET", filter=filter_bound_in, format=in_packet_formatter)
     
-    logger.level('OUTPACKET', 50, color="<lm>")
-    logger.add(stderr, colorize=True, level="OUTPACKET", filter=filter_bound_out, format=out_packet_formatter)
+    logger.level('OUTPACKET', 0, color="<lm>")
+    logger.add(stdout, colorize=True, level="OUTPACKET", filter=filter_bound_out, format=out_packet_formatter)
 
 def make_string(message):
     main_formatters = (

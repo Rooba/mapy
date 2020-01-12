@@ -39,7 +39,6 @@ class InventoryManager(abc.Serializable):
         slots = inventory.add(item, slot)
 
         for slot, item in slots:
-            print(slot, item)
             self.tracker.insert(item, slot)
 
 
@@ -139,3 +138,17 @@ class Inventory(abc.Inventory):
             pass
 
         return items
+    
+    @property
+    def slots(self):
+        return self._slots
+
+    def encode(self, packet):
+        for slot, item in self.items.items():
+            if not item:
+                continue
+
+            packet.encode_byte(slot)
+            item.encode(packet)
+        
+        packet.encode_byte(0)

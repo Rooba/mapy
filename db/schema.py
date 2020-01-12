@@ -133,7 +133,6 @@ class Column:
         
         self.data_type = data_type
         self.primary_key = primary_key
-        self.name = name
         self.nullable = nullable
         self.default = default
         self.unique = unique
@@ -190,14 +189,6 @@ class Column:
         return SQLComparison(
             SQLOperator.ge(), self.aggregate, self.full_name, value)
 
-    def __contains__(self, value):
-        if isinstance(value, Column):
-            return SQLComparison(
-                SQLOperator.in__(), self.aggregate, self.full_name, value)
-        
-        return SQLComparison(
-            SQLOperator.in_(), self.aggregate, self.full_name, value)
-
     def like(self, value):
         return SQLComparison(
             SQLOperator.like(), self.aggregate, self.full_name, value)
@@ -243,6 +234,8 @@ class Column:
                 default = f"'{self.default}'"
             elif isinstance(self.default, bool):
                 default = str(self.default).upper()
+            elif isinstance(self.data_type, types.ArraySQL):
+                default = f"{default}::{self.data_type.to_sql()}"
             else:
                 default = f"{self.default}"
             sql.append(f"DEFAULT {default}")
@@ -254,8 +247,7 @@ class Column:
             sql.append('NOT NULL')
         
         if self.foreign_key:
-            fkey_table = self.foreign_key.table.full_name
-            fkey_name = self.foreign_key.name
+            fkey_table, fkey_name = self.foreign_key.name.split('.', 1)
             sql.append(f"REFERENCES {fkey_table} ({fkey_name})")
 
         return ' '.join(sql)
@@ -535,10 +527,10 @@ class Table:
     def sql(self, *columns, primaries=None):
         """Generate SQL for creating the table."""
         sql = []
-        if self.schema:
-            sql.append(str(self.schema.sql()))
-            sql.append('\n')
-        sql.append(f"CREATE TABLE {self.full_name} (")
+        # if self.schema:
+        #     sql.append(str(self.schema.sql()))
+        #     sql.append('\n')
+        sql.append(f"CREATE TABLE {self.full_name} IF NOT EXISTS (")
         if not columns:
             if not self.new_columns:
                 raise SchemaError("No columns for created table.")
@@ -560,10 +552,10 @@ class Table:
 
     async def create(self, *columns, primaries=None):
         """Create table and return the object representing it."""
-        if self.schema:
-            await self.schema.create()
+        # if self.schema:
+        #     await self.schema.create()
         
-        sql = f"CREATE TABLE {self.full_name} ("
+        sql = f"CREATE TABLE {self.full_name} IF NOT EXISTS ("
         if not columns:
             if not self.new_columns:
                 raise SchemaError("No columns for created table.")

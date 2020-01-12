@@ -16,13 +16,17 @@ class ClientBase:
         self.port = None
         self._is_alive = False
 
+        self.logged_in = False
+        self.world_id = None
+        self.channel_id = None
+
     async def initialize(self):
         self._parent._loop.create_task(self.receive())
 
-        # self.m_socket.m_siv = MapleIV(randint(0, 2**31-1))
-        self.m_socket.m_siv = MapleIV(100)
-        # self.m_socket.m_riv = MapleIV(randint(0, 2**31-1))
-        self.m_socket.m_riv = MapleIV(50)
+        self.m_socket.m_siv = MapleIV(randint(0, 2**31-1))
+        # self.m_socket.m_siv = MapleIV(100)
+        self.m_socket.m_riv = MapleIV(randint(0, 2**31-1))
+        # self.m_socket.m_riv = MapleIV(50)
 
         packet = Packet(op_code=0x0E)
         packet.encode_short(VERSION)
@@ -40,7 +44,7 @@ class ClientBase:
             m_recv_buffer = await self.sock_recv()
 
             if not m_recv_buffer:
-                await self._parent.on_client_disconnect(self)
+                self._parent.on_client_disconnect(self)
                 return
 
             if self.m_socket.m_riv:
@@ -66,6 +70,10 @@ class ClientBase:
 
     def manipulate_buffer(self, buffer):
         return self.m_socket.manipulate_buffer(buffer)
+
+    @property
+    def parent(self):
+        return self._parent
 
     @property
     def ip(self):

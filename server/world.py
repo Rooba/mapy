@@ -30,9 +30,20 @@ class World:
     def port(self):
         return 8585 + 100 * self.__world.value
 
-    def add_channel(self, item):
-        self._channels.append(item)
-    
     @property
     def population(self):
         return sum([channel.population for channel in self._channels])
+
+    @property
+    def channels(self):
+        return self._channels
+
+    def add_channel(self, item):
+        self._channels.append(item)
+    
+    def __getitem__(self, key):
+        for channel in self._channels:
+            if channel.channel_id == key:
+                return channel
+        
+        return None

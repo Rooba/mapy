@@ -1,4 +1,5 @@
 from abc import ABCMeta
+from copy import deepcopy
 from random import randint
 
 class Serializable(metaclass=ABCMeta):
@@ -11,7 +12,22 @@ class Serializable(metaclass=ABCMeta):
             serialized[key] = value
 
         return serialized
-    
+
+class WildcardData:
+    @classmethod
+    def __new__(cls, *args, **kwargs):
+        old_init = cls.__init__
+        def _new_init_(self, *args, **kwargs):
+            cleaned = {}
+            for key, value in kwargs.items():
+                if key not in dir(cls):
+                    continue
+                cleaned[key] = value
+            old_init(self, *args, **cleaned)
+        
+        cls.__init__ = _new_init_
+        return super(WildcardData, cls).__new__(cls)
+
 class Inventory:
     pass
     # def add(self, item, slot=None):

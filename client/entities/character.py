@@ -1,103 +1,156 @@
 from common import abc
-from utils import filter_out_to
+from utils import filter_out_to, Random, MapPos
 
 from . import item as Item
+from .character_stats import CharacterStats
 from .inventory import InventoryManager, InventoryType
-
-
-def f(a):
-    return [0 for _ in range(a)]
 
 
 class Character(abc.Serializable):
     def __init__(self, **data):
-
-        self.id = data.get('id', None)
-        self.name = data.get('name', "Mapler")
-        self.world_id = data.get('world_id', 0)
-
-        self.gender = data.get('gender', 0)
-        self.skin = data.get('skin', 0)
-        self.face = data.get('face', 20001)
-        self.hair = data.get('hair', 30003)
-
-        self.level = data.get('level', 10)
-        self.job = data.get('job', 0)
-        self.str = data.get('str', 20)
-        self.dex = data.get('dex', 12)
-        self.int = data.get('int', 11)
-        self.luk = data.get('luk', 11)
-
-        self.hp = data.get('hp', 50)
-        self.m_hp = data.get('m_hp', 50)
-        self.mp = data.get('mp', 5)
-        self.m_mp = data.get('m_mp', 5)
-
-        self.ap = data.get('ap', 0)
-        self.sp = data.get('sp', 0)
-        self.extend_sp = data.get('extend_sp', f(10))
-
-        self.exp = data.get('exp', 0)
-        self.money = data.get('money', 0)
-        self.fame = data.get('fame', 0)
-
-        self.temp_exp = data.get('temp_exp', 0)
-        self.field_id = data.get('pos_map', 100000000)
-        self.portal = data.get('portal', 0)
-        self.play_time = data.get('play_time', 0)
-        self.sub_job = data.get('sub_job', 0)
-        self.pet_locker = data.get('pet_locker', f(3))
-        # self.pet_ids = f(3)
+        self.stats = CharacterStats(**data)
+        self.position = MapPos()
 
         self.inventories = InventoryManager()
+        self.func_keys = []
+        self.skills = {}
+        self.random = Random()
 
-    def encode_stats(self, packet):
-        packet.encode_int(self.id)
-        packet.encode_fixed_string(self.name, 13)
-        packet.encode_byte(self.gender)
-        packet.encode_byte(self.skin)
-        packet.encode_int(self.face)
-        packet.encode_int(self.hair)
+        self.map_transfer = [0, 0, 0, 0, 0]
+        self.map_transfer_ex = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        self.monster_book_cover_id = 0
 
-        for sn in self.pet_locker:
-            packet.encode_long(sn)
+    @property
+    def id(self):
+        return self.stats.id
 
-        packet.encode_byte(self.level)
-        packet.encode_short(self.job)
-        packet.encode_short(self.str)
-        packet.encode_short(self.dex)
-        packet.encode_short(self.int)
-        packet.encode_short(self.luk)
-        packet.encode_int(self.hp)
-        packet.encode_int(self.m_hp)
-        packet.encode_int(self.mp)
-        packet.encode_int(self.m_mp)
-        packet.encode_short(self.ap)
+    @property
+    def field_id(self):
+        return self.stats.field_id
 
-        # if player not evan
-        packet.encode_short(self.sp)
-        # else
-        # packet.encode_byte(len(self.extend_sp))
+    @property
+    def equip_inventory(self):
+        return self.inventories.get(1)
 
-        # for i, sp in enumerate(self.extend_sp):
-        #     packet.encode_byte(i)
-        #     packet.encode_byte(sp)
+    @property
+    def consume_inventory(self):
+        return self.inventories.get(2)
 
-        packet.encode_int(self.exp)
-        packet.encode_short(self.fame)
-        packet.encode_int(self.temp_exp)
-        packet.encode_int(self.field_id)
-        packet.encode_byte(self.portal)
-        packet.encode_int(self.play_time)
-        packet.encode_short(self.sub_job)
+    @property
+    def install_inventory(self):
+        return self.inventories.get(3)
+
+    @property
+    def etc_inventory(self):
+        return self.inventories.get(4)
+
+    @property
+    def cash_inventory(self):
+        return self.inventories.get(5)
+
+    def encode(self, packet):
+        packet.encode_long(-1 & 0xFFFFFFFF)
+        packet.encode_byte(0) # combat orders
+        packet.encode_byte(0)
+
+        self.stats.encode(packet)
+        packet.encode_byte(100) # Buddylist capacity
+        packet.encode_byte(False)
+        packet.encode_int(self.stats.money)
+
+        self.encode_inventories(packet)
+        self.encode_skills(packet)
+        self.encode_quests(packet)
+        self.encode_minigames(packet)
+        self.encode_rings(packet)
+        self.encode_teleports(packet)
+        # self.encode_monster_book(packet)
+        self.encode_new_year(packet)
+        packet.encode_short(0)
+        # self.encode_area(packet)
+        packet.encode_short(0)
+        packet.encode_short(0)
+
+    def encode_inventories(self, packet):
+        packet.encode_byte(self.equip_inventory.slots)
+        packet.encode_byte(self.consume_inventory.slots)
+        packet.encode_byte(self.install_inventory.slots)
+        packet.encode_byte(self.etc_inventory.slots)
+        packet.encode_byte(self.cash_inventory.slots)
+
+        packet.encode_int(0)
+        packet.encode_int(0)
+
+        inv_equip = {slot: item for slot, item in self.equip_inventory.items.items() if slot >= 0}
+        equipped = {slot: item for slot, item in self.equip_inventory.items.items() if slot >= -100 and slot < 0}
+        equipped2 = {slot: item for slot, item in self.equip_inventory.items.items() if slot >= -1000 and slot < -100}
+        dragon_equip = {slot: item for slot, item in self.equip_inventory.items.items() if slot >= -1100 and slot < -1000}
+        mechanic_equip = {slot: item for slot, item in self.equip_inventory.items.items() if slot >= -1200 and slot < -1100}
+        
+        for inv in [equipped, equipped2, inv_equip, dragon_equip, mechanic_equip]:
+            for slot, item in inv.items():
+                if not item:
+                    continue
+                
+                packet.encode_short(abs(slot))
+                item.encode(packet)
+            
+            packet.encode_short(0)
+
+        self.consume_inventory.encode(packet)
+        self.install_inventory.encode(packet)
+        self.etc_inventory.encode(packet)
+        self.cash_inventory.encode(packet)
+
+    def encode_skills(self, packet):
+        packet.encode_short(len(self.skills))
+        for _, skill in self.skills.items():
+            skill.encode(packet)
+
+            if False:
+                packet.encode_int(skill.mastery_level) # is skill needed for mastery
+            
+        packet.encode_short(0)
+
+    def encode_quests(self, packet):
+        packet.encode_short(0)
+
+        packet.encode_short(0)
+
+    def encode_minigames(self, packet):
+        packet.encode_short(0)
+
+    def encode_rings(self, packet):
+        packet.encode_short(0)
+        packet.encode_short(0)
+        packet.encode_short(0)
+
+    # Maybe needs to not be filled by default
+    def encode_teleports(self, packet):
+        for i in range(5):
+            packet.encode_int(0)
+        
+        for i in range(10):
+            packet.encode_int(0)
+
+    def encode_monster_book(self, packet):
+        packet.encode_int(self.monster_book_cover_id)
+        packet.encode_byte(0)
+
+        packet.encode_short(0)
+
+    def encode_new_year(self, packet):
+        packet.encode_short(0)
+
+    def encode_area(self, packet):
+        packet.encode_short(0)
 
     def encode_look(self, packet):
-
-        packet.encode_byte(self.gender)
-        packet.encode_byte(self.skin)
-        packet.encode_int(self.face)
+        packet.encode_byte(self.stats.gender)
+        packet.encode_byte(self.stats.skin)
+        packet.encode_int(self.stats.face)
         packet.encode_byte(0)
-        packet.encode_int(self.hair)
+        packet.encode_int(self.stats.hair)
 
         inventory = self.inventories.get(InventoryType.equip)
         equipped = {}

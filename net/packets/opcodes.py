@@ -483,13 +483,13 @@ class CSendOps(OpCodes):
     LP_TransferChannel = 0x8A
     LP_DisallowedDeliveryQuestList = 0x8B
     LP_MacroSysDataInit = 0x8C
-    LP_END_CHARACTERDATA = 0x8C
-    LP_BEGIN_STAGE = 0x8D
+    # LP_END_CHARACTERDATA = 0x8C
+    # LP_BEGIN_STAGE = 0x8D
     LP_SetField = 0x8D
     LP_SetITC = 0x8E
     LP_SetCashShop = 0x8F
-    LP_END_STAGE = 0x8F
-    LP_BEGIN_MAP = 0x90
+    # LP_END_STAGE = 0x8F
+    # LP_BEGIN_MAP = 0x90
     LP_SetBackgroundEffect = 0x90
     LP_SetMapObjectVisible = 0x91
     LP_ClearBackgroundEffect = 0x92

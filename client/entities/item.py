@@ -1,9 +1,15 @@
+from dataclasses import dataclass, field
 from enum import Enum
+from typing import List
+
+from common import abc
+
 
 class ItemInventoryTypes(Enum):
     ItemSlotEquip = 0x1
 
-class ItemSlotBase:
+@dataclass
+class ItemSlotBase(abc.WildcardData):
     """Base item class for all items
     
     Parameters
@@ -23,17 +29,12 @@ class ItemSlotBase:
 
     """
 
-    def __init__(self, *, item_id=None, cisn=None, 
-                    expire=None, inventory_item_id=None,
-                    flag=0, quantity=1):
-        
-        self.item_id = item_id # temaplate_id
-        self.cisn = cisn
-        self.expire = expire
-        self.inventory_item_id = inventory_item_id
-        # self.price = price
-        self.quantity = quantity
-        self.flag = flag
+    item_id: int            = 0
+    cisn: int               = 0
+    expire: int             = 0
+    inventory_item_id: int  = 0
+    quantity: int           = 0
+    flag: int               = 0
 
     def encode(self, packet) -> None:
         """Encode base item information onto packet
@@ -46,65 +47,57 @@ class ItemSlotBase:
         """
 
         packet.encode_int(self.item_id)
-        packet.encode_bool(not self.cisn)
+        packet.encode_byte(self.cisn is not 0)
 
         if self.cisn:
             packet.encode_long(self.cisn)
 
-        packet.encode_long(self.expire)
+        packet.encode_long(150841440000000000)
 
+@dataclass
 class ItemSlotEquip(ItemSlotBase):
-    def __init__(self, item_id=None, cisn=None, expire=None, 
-                inventory_item_id=None, **kwargs) -> object:
-        super().__init__(item_id=item_id, cisn=cisn, expire=expire, 
-                        inventory_item_id=inventory_item_id)
+    req_job: List   = list
+    ruc: int        = 0
+    cuc: int        = 0
 
-        self.req_job = kwargs.get('req_job', [0])
+    str: int            = 0
+    dex: int            = 0
+    int: int            = 0
+    luk: int            = 0
+    hp: int             = 0
+    mp: int             = 0
+    weapon_attack: int  = 0
+    weapon_defense: int = 0
+    magic_attack: int   = 0
+    magic_defense: int  = 0
+    accuracy: int       = 0
+    avoid: int          = 0
 
-        # equip_slots returns list[string] need 
-        # to convert to list[int]
+    hands: int      = 0
+    speed: int      = 0
+    jump: int       = 0
 
-        self.ruc = kwargs.get('ruc', 0)
-        self.cuc = kwargs.get('cuc', 0)
+    title: str          = ""
+    craft: int          = 0
+    attribute: int      = 0
+    level_up_type: int  = 0
+    level: int          = 0
+    durability: int     = 0
+    iuc: int            = 0
+    exp: int            = 0
 
-        self.str = kwargs.get('str', 0)
-        self.dex = kwargs.get('dex', 0)
-        self.int = kwargs.get('int', 0)
-        self.luk = kwargs.get('luk', 0)
-        self.hp = kwargs.get('hp', 0)
-        self.mp = kwargs.get('mp', 0)
-        self.weapon_attack = kwargs.get('weapon_attack', 0)
-        self.weapon_defense = kwargs.get('weapon_defense', 0)
-        self.magic_attack = kwargs.get('magic_attack', 0)
-        self.magic_defense = kwargs.get('magic_defense', 0)
-        self.accuracy = kwargs.get('acc', 0)
-        self.avoid = kwargs.get('avoid', 0)
-        
-        self.hands = kwargs.get('hands', 0)
-        self.speed = kwargs.get('speed', 0)
-        self.jump = kwargs.get('jump', 0)
+    grade: int          = 0
+    chuc: int           = 0
 
-        self.title = kwargs.get('owner', "")
-        self.craft = kwargs.get('craft')
-        self.attribute = kwargs.get('attribute')
-        self.level_up_type = kwargs.get('level_up_type')
-        self.level = kwargs.get('level')
-        self.durability = kwargs.get('durability', -1)
-        self.iuc = kwargs.get('iuc')
-        self.exp = kwargs.get('exp')
+    option_1: int   = 0
+    option_2: int   = 0
+    option_3: int   = 0
+    socket_1: int   = 0
+    socket_2: int   = 0
 
-        self.grade = kwargs.get('grade')
-        self.chuc = kwargs.get('chuc')
-
-        self.option_1 = kwargs.get('option_1')
-        self.option_2 = kwargs.get('option_2')
-        self.option_3 = kwargs.get('option_3')
-        self.socket_1 = kwargs.get('socket_1')
-        self.socket_2 = kwargs.get('socket_2')
-
-        self.lisn = kwargs.get('lisn')
-        self.storage_id = kwargs.get('storage_id')
-        self.sn = kwargs.get('sn')
+    lisn: int       = 0
+    storage_id: int = 0
+    sn: int         = 0
     
     def encode(self, packet):
         packet.encode_byte(1)
@@ -123,7 +116,7 @@ class ItemSlotEquip(ItemSlotBase):
         packet.encode_short(self.magic_attack)
         packet.encode_short(self.weapon_defense)
         packet.encode_short(self.magic_defense)
-        packet.encode_short(self.acc)
+        packet.encode_short(self.accuracy)
         packet.encode_short(self.avoid)
         packet.encode_short(self.craft)
         packet.encode_short(self.speed)
@@ -133,10 +126,14 @@ class ItemSlotEquip(ItemSlotBase):
 
         packet.encode_byte(self.level_up_type)
         packet.encode_byte(self.level)
-        packet.encode_int(self.durability)
+        packet.encode_int(self.exp)
+        packet.encode_int(-1 & 0xFFFFFF)
+
         packet.encode_int(self.iuc)
+
         packet.encode_byte(self.grade)
         packet.encode_byte(self.chuc)
+
         packet.encode_short(self.option_1)
         packet.encode_short(self.option_2)
         packet.encode_short(self.option_3)
@@ -144,12 +141,27 @@ class ItemSlotEquip(ItemSlotBase):
         packet.encode_short(self.socket_2)
         
         if not self.cisn:
-            packet.encode_long(self.lisn)
+            packet.encode_long(0)
     
-        packet.encode_long(150841440000000000)
-        packet.encode_int(-1)
+        packet.encode_long(0)
+        packet.encode_int(0)
 
 
+@dataclass
 class ItemSlotBundle(ItemSlotBase):
-    pass
+    number: int     = 1
+    attribute: int  = 0
+    lisn: int       = 0
+    title: str      = ""
 
+    def encode(self, packet):
+        packet.encode_byte(2)
+
+        super().encode(packet)
+
+        packet.encode_short(self.number)
+        packet.encode_string(self.title)
+        packet.encode_short(self.attribute)
+
+        if self.item_id / 10000 == 207:
+            packet.encode_long(self.lisn)

@@ -19,9 +19,6 @@ class WvsLoginClient(ClientBase):
         super().__init__(parent, socket)
 
         self.account = None
-        self.server_id = None
-        self.channel_id = None
-        self.logged_in = False
         self.avatars = []
 
     async def login(self, username, password):

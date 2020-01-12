@@ -108,6 +108,14 @@ class ByteBuffer(BytesIO):
         self.to_debug(bytes_, 8)
         return self
 
+    def encode_buffer(self, buffer):
+        self.write(buffer)
+        return self
+    
+    def skip(self, count):
+        self.write(bytes(count))
+        return self
+
     def encode_string(self, string):
         bytes_ = (len(string)).to_bytes(2, 'little')
         self.write(bytes_)
@@ -146,7 +154,7 @@ class ByteBuffer(BytesIO):
         return (int).from_bytes(self.read(8), 'little')
 
     def decode_buffer(self, size):
-        return (int).from_bytes(self.read(size), 'little')
+        return self.read(size)
 
     def decode_string(self):
         length = (int).from_bytes(self.read(2), 'little')
@@ -170,7 +178,7 @@ class Packet(ByteBuffer):
         Which enum to try to get the op_code from
     
     """
-    def __init__(self, data=None, op_code=None):
+    def __init__(self, data=None, op_code=None, raw=False):
 
         if data == None:
             data = b''
@@ -188,6 +196,9 @@ class Packet(ByteBuffer):
             
             return 
 
+        if raw:
+            return
+        
         # For debug string, giving whether byte, short, int
         # long, or string
         seg_type = self.decode_byte()

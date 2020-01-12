@@ -69,6 +69,7 @@ class Datetime(SQLType):
 
         return 'TIMESTAMP'
 
+
 class Double(SQLType):
     python = float
 
@@ -249,7 +250,7 @@ class ForeignKey(SQLType):
         return False
 
     def to_sql(self):
-        return  f'{self.sql_type} REFERENCES {self.table} ({self.column})' \
+        return  f'{self.column} REFERENCES {self.table} ({self.column})' \
               f" ON DELETE {self.on_delete} ON UPDATE {self.on_update}"
 
 

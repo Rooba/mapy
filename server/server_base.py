@@ -51,7 +51,7 @@ class ServerBase:
         self._clients.append(maple_client)
         await maple_client.initialize()
 
-    async def on_client_disconnect(self, client):
+    def on_client_disconnect(self, client):
         self._clients.remove(client)
         
         log.info(f"Client Disconnected {client.ip}")
@@ -87,3 +87,15 @@ class ServerBase:
     @property
     def name(self):
         return self._name
+    
+    @property
+    def parent(self):
+        return self._parent
+    
+    @property
+    def port(self):
+        return self._port
+
+    @property
+    def population(self):
+        return len(self._clients)

@@ -1,11 +1,10 @@
+from common import constants
 from net import packets
 from net.packets import CSendOps
+from .tools import get
 
 
 class CPacket:
-    def __init__(self):
-        pass
-
     @staticmethod
     def check_password_result(client=None, response=None):
         packet = packets.Packet(op_code=CSendOps.LP_CheckPasswordResult)
@@ -122,7 +121,7 @@ class CPacket:
 
     @staticmethod
     def add_character_result(packet, character):
-        character.encode_stats(packet)
+        character.stats.encode(packet)
         character.encode_look(packet)
 
         packet.encode_byte(False)  # VAC
@@ -175,3 +174,208 @@ class CPacket:
             CPacket.add_character_result(packet, character)
 
         return packet
+
+    @staticmethod
+    def select_character_result(uid, port):
+        packet = packets.Packet(op_code=CSendOps.LP_SelectCharacterResult)
+
+        packet.encode_byte(0) # world
+        packet.encode_byte(0) # selected char
+
+        packet.encode_buffer(constants.SERVER_ADDRESS)
+        packet.encode_short(port)
+        packet.encode_int(uid)
+        packet.encode_byte(0)
+        packet.encode_int(0)
+
+        return packet
+
+    # ---------------- Login Server End --------------- #
+
+    @staticmethod
+    def set_field(character, character_data, channel: int):
+        packet = packets.Packet(op_code=CSendOps.LP_SetField)
+        # CPacket.cclient_opt_man__encode_opt(packet, 0)
+        packet.encode_short(0)
+
+        packet.encode_int(channel)
+        packet.encode_int(0)
+
+        packet.encode_byte(1)
+        packet.encode_byte(character_data)
+        packet.encode_short(0)
+
+        if character_data:
+            # character.random.encode(packet)
+            packet.encode_int(0)
+            packet.encode_int(0)
+            packet.encode_int(0)
+            character.encode(packet)
+
+            packet.encode_int(0)
+            packet.encode_int(0)
+            packet.encode_int(0)
+            packet.encode_int(0)
+        
+        else:
+            packet.encode_byte(0)
+            packet.encode_int(character.field_id)
+            packet.encode_byte(character.stats.portal)
+            packet.encode_int(character.stats.hp)
+            packet.encode_byte(0)
+        
+        packet.encode_long(150842304000000000)
+
+        return packet
+
+    @staticmethod
+    def func_keys_init(keys):
+        packet = packets.Packet(op_code=CSendOps.LP_FuncKeyMappedInit)
+        packet.encode_byte(0)
+
+        for i in range(90):
+            key = get(keys, key=i)
+            packet.encode_byte(getattr(key, 'type', 0))
+            packet.encode_int(getattr(key, 'action', 0))
+        
+        return packet
+
+    @staticmethod
+    def set_gender(gender):
+        packet = packets.Packet(op_code=CSendOps.LP_SetGender)
+        packet.encode_byte(gender)
+        return packet
+
+    @staticmethod
+    def claim_svr_changed(claim_svr_con: bool):
+        packet = packets.Packet(op_code=CSendOps.LP_ClaimSvrStatusChanged)
+        packet.encode_byte(claim_svr_con)
+        return packet
+
+    # ------------------- User Pool ------------------- #
+
+    @staticmethod
+    def user_enter_field(character):
+        packet = packets.Packet(op_code=CSendOps.LP_UserEnterField)
+        packet.encode_int(character.id)
+
+        packet.encode_byte(character.stats.level)
+        packet.encode_string(character.stats.name)
+        
+        packet.skip(8)
+
+        packet.encode_long(0)\
+            .encode_long(0)\
+                .encode_byte(0)\
+                    .encode_byte(0)
+        
+        packet.encode_short(character.stats.job)
+        character.encode_look(packet)
+
+        packet.encode_int(0) # driver ID
+        packet.encode_int(0) # passenger ID
+        packet.encode_int(0) # choco count
+        packet.encode_int(0) # active effeect item ID
+        packet.encode_int(0) # completed set item ID
+        packet.encode_int(0) # portable chair ID
+
+        packet.encode_short(0) # private?
+
+        packet.encode_short(0)
+        packet.encode_byte(character.position.stance)
+        packet.encode_short(character.position.foothold)
+        packet.encode_byte(0) # show admin effect
+
+        packet.encode_byte(0) # pets?
+
+        packet.encode_int(0) # taming mob level
+        packet.encode_int(0) # taming mob exp
+        packet.encode_int(0) # taming mob fatigue
+
+        packet.encode_byte(0) # mini room type
+
+        packet.encode_byte(0) # ad board remote
+        packet.encode_byte(0) # on couple record add
+        packet.encode_byte(0) # on friend record add
+        packet.encode_byte(0) # on marriage record add
+
+        packet.encode_byte(0) # some sort of effect bit flag
+
+        packet.encode_byte(0) # new year card record add
+        packet.encode_int(0) # phase
+        return packet
+
+    @staticmethod
+    def user_leave_field(character):
+        packet = packets.Packet(op_code=CSendOps.LP_UserLeaveField)
+        packet.encode_int(character.id)
+        return packet
+
+    @staticmethod
+    def user_movement(uid, move_path):
+        packet = packets.Packet(op_code=CSendOps.LP_UserMove)
+        packet.encode_int(uid)
+        packet.encode_buffer(move_path)
+        return packet
+    
+    # --------------------- Mob Pool ------------------- #
+
+    @staticmethod
+    def mob_enter_field(mob):
+        packet = packets.Packet(op_code=CSendOps.LP_MobEnterField)
+        mob.encode_init(packet)
+        return packet
+
+    @staticmethod
+    def mob_change_controller(mob, level):
+        packet = packets.Packet(op_code=CSendOps.LP_MobChangeController)
+        packet.encode_byte(level)
+
+        if level == 0:
+            packet.encode_int(mob.obj_id)
+        else:
+            mob.encode_init(packet)
+        
+        return packet
+
+    # --------------------- Npc Pool ----------------------#
+
+    @staticmethod
+    def npc_enter_field(npc):
+        packet = packets.Packet(op_code=CSendOps.LP_NpcEnterField)
+        packet.encode_int(npc.obj_id)
+        packet.encode_int(npc.life_id)
+
+        packet.encode_short(npc.x)
+        packet.encode_short(npc.cy)
+        packet.encode_byte(npc.f != 1)
+        packet.encode_short(npc.foothold)
+        packet.encode_short(npc.rx0)
+        packet.encode_short(npc.rx1)
+
+        packet.encode_byte(True)
+
+        return packet
+
+
+    @staticmethod
+    def broadcast_server_msg(msg):
+        return CPacket.broadcast_msg(4, msg)
+
+    @staticmethod
+    def broadcast_msg(type_, msg):
+        packet = packets.Packet(op_code=CSendOps.LP_BroadcastMsg)
+        packet.encode_byte(type_)
+
+        if type_ == 4:
+            packet.encode_byte(True)
+        
+        packet.encode_string(msg)
+        return packet
+
+    @staticmethod    
+    def cclient_opt_man__encode_opt(packet, opt_count):
+        packet.encode_short(opt_count)
+
+        for i in range(opt_count):
+            packet.encode_long(i + 1)

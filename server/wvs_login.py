@@ -1,5 +1,7 @@
 import asyncio
 
+from datetime import datetime
+
 from client import WvsLoginClient
 from client.entities import Account, Character
 from client.entities.inventory import InventoryType
@@ -7,6 +9,7 @@ from common.constants import (
     AUTO_LOGIN, AUTO_REGISDTER, CENTER_PORT, HOST_IP, LOGIN_PORT,
     MAX_CHARACTERS, REQUEST_PIC, REQUEST_PIN, REQUIRE_STAFF_IP, WORLD_COUNT,
     get_job_from_creation)
+from common.types import PendingLogin
 from db import DatabaseClient
 from net.packets import Packet
 from net.packets.opcodes import CRecvOps, CSendOps
@@ -88,9 +91,8 @@ class WvsLogin(ServerBase):
     async def select_world(self, client, packet):
         packet.decode_byte()
 
-        world_id = packet.decode_byte()
-        # channel ID
-        packet.decode_byte()
+        client.world_id = world_id = packet.decode_byte()
+        client.channel_id = packet.decode_byte()
 
         client.account.last_connected_world = world_id
 
@@ -159,3 +161,16 @@ class WvsLogin(ServerBase):
         
         return await client.send_packet(
             CPacket.create_new_character(character, True))
+
+    @packet_handler(CRecvOps.CP_SelectCharacter)
+    async def select_character(self, client, packet):
+        uid = packet.decode_int()
+        character = next((c for c in client.avatars if c.id == uid), None)
+        port = self.parent.worlds[client.world_id][client.channel_id].port
+
+        self.parent.logged_in.append(
+            PendingLogin(character, client.account, datetime.now()))
+
+        await client.send_packet(
+            CPacket.select_character_result(uid, port))
+    

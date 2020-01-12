@@ -5,10 +5,14 @@ from asyncpg import create_pool
 from asyncpg.exceptions import InterfaceError
 from datetime import date
 
-from client.entities import Account as Acc, Character, item as Item
+from client.entities import Account as Acc, Character,\
+     item as Item, FuncKey, SkillEntry, Portal, Foothold
+from game.field import Field as field
+from game.mob import Mob
 from utils import log, get
-from .schema import Table, Query, Insert, Update, Schema, IntColumn, ListArguments
-from .structure import RMDB
+from .schema import Table, Query, Insert, Update,\
+     Schema, IntColumn, ListArguments
+from .structure import RMDB, Maplestory
 
 
 async def init_conn(conn):
@@ -43,6 +47,8 @@ class DatabaseClient:
         )
         log.info('Connected to postgresql server')
 
+        # await Maplestory.create()
+
     async def stop(self):
         if self.pool:
             await self.pool.close()
@@ -57,6 +63,9 @@ class DatabaseClient:
             loop=self.loop, 
             init=init_conn
         )
+
+    async def initialize_database(self):
+        pass
 
     async def execute_query(self, query, *args):
         result = []
@@ -96,7 +105,7 @@ class DatabaseClient:
     async def create_table(self, name, columns, *, primaries=None):
         return await Table(self, name).create(columns, primaries=primaries)
     
-    def table(self, name):
+    def table(self, name, *, schema=None):
         return Table(name, self)
 
     def query(self, *tables):
@@ -121,6 +130,10 @@ class DatabaseClient:
     @property
     def items(self):
         return self._items
+
+    @property
+    def field(self):
+        return Field(self)
 
 
 def get_acc(fn):
@@ -246,6 +259,21 @@ class Characters:
             
             character.inventories.tracker\
                 .copy(*character.inventories)
+
+            func_keys = await self._db.table('maplestory.keymap').query()\
+                .select('key', 'type', 'action')\
+                    .where(character_id=character.id)\
+                        .get()
+            
+            for key in func_keys:
+                character.func_keys.append(FuncKey(**key))
+            
+            skills = await self._db.table('maplestory.skills').query()\
+                .where(character_id=character.id)\
+                    .get()
+            
+            for skill in skills:
+                character.skills[skill['id']] = SkillEntry(**skill)
             
             ret.append(character)
         
@@ -401,3 +429,41 @@ class Items:
         self._cached_items.append(item)
         return item
 
+
+class Field:
+    def __init__(self, db):
+        self._db = db
+    
+    async def get(self, map_id):
+        _field = field(map_id)
+
+        portals = await self._db.table('rmdb.map_portals').query()\
+            .where(map_id=map_id).get()
+        
+        for portal in portals:
+            _field.portals.add(Portal(**portal))
+        
+        footholds = await self._db.table('rmdb.map_footholds').query()\
+            .where(map_id=map_id).get()
+        
+        for foothold in footholds:
+            _field.footholds.add(Foothold(**foothold))
+
+        life = self._db.query('rmdb.map_life')\
+            .where(map_id=map_id)
+        
+        life_column = IntColumn('life_id')
+        mob_column = IntColumn('mob_id')
+
+        mobs = self._db.query('rmdb.mob_data', 'life')\
+            .select('mob_data.*', 'mob_data.mob_id as life_id', distinct=True)\
+                .where(mob_column.in_(life_column))
+        
+        all_mobs = await self._db.query()\
+            .with_(('life', life), ('mobs', mobs))\
+                .table('life').inner_join('mobs', 'life_id').get()
+
+        for mob in all_mobs:
+            _field.mobs.add(Mob(**mob))
+        
+        return _field

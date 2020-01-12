@@ -2,6 +2,7 @@ import signal
 
 from asyncio import get_event_loop, create_task, Event, Task
 from configparser import ConfigParser
+from time import time
 
 from . import World, WvsGame, WvsLogin, WvsShop
 from db import DatabaseClient
@@ -14,6 +15,7 @@ from db import DatabaseClient
 from utils.tools import wakeup
 from net.packets.packet import packet_handler, Packet
 from utils import log, logger
+from web_api import HTTPServer
 from client import WvsCenterClient
 from common.enum import Worlds
 from common.constants import (GAME_PORT, USE_DATABASE,
@@ -42,10 +44,13 @@ class ServerApp:
         self.name = "ServerApp"
         self._loop = get_event_loop()
         self._clients = []
+        self._http_api = HTTPServer(self, self._loop)
+        
+        self.logged_in = []
 
         self.login = None
         self.shop = None
-        self.worlds = []
+        self.worlds = {}
 
         # if USE_DATABASE:
         self._load_config()
@@ -57,7 +62,7 @@ class ServerApp:
             self._make_config()
 
     def _make_config(self):
-        print("Please setup the database and other configuration")
+        log.info("Please setup the database and other configuration")
         self._config.add_section('database')
         self._config['database']['user'] = input("DB User: ")
         self._config['database']['password'] = input("DB Password: ")
@@ -72,7 +77,7 @@ class ServerApp:
             world_num = int(input("Number of worlds: [Max 20] "))
             for i in range(world_num):
                 name = Worlds(i).name
-                print(f"Setting up {Worlds(i).name}...")
+                log.info(f"Setting up {Worlds(i).name}...")
 
                 self._config['worlds'][name] = 'active'
 
@@ -92,6 +97,9 @@ class ServerApp:
     @classmethod
     def run(cls):
         self = ServerApp()
+
+        log.info("Initializing HTTP API")
+        # self._http_api.run()
 
         loop = self._loop
 
@@ -117,9 +125,11 @@ class ServerApp:
         finally:
             future.remove_done_callback(stop_loop_on_completion)
             loop.run_until_complete(loop.shutdown_asyncgens())
-            log.warning(f"{self.name} Closed {self.name}")
+            log.warning(f"Closed {self.name}")
 
     async def start(self):
+        self._start_time = int(time())
+
         log.info("Initializing Server")
 
         # if USE_DATABASE:
@@ -147,8 +157,15 @@ class ServerApp:
                 world.add_channel(channel)
                 channel_port += 1
 
-            self.worlds.append(world)
+            self.worlds[world_id] = world
             self.login.add_world(world)
 
         await wakeup()
 
+    @property
+    def uptime(self):
+        return int(time()) - self._start_time
+
+    @property
+    def population(self):
+        return len(self._clients) + self.login.population

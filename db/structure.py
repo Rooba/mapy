@@ -1,35 +1,47 @@
-from enum import Enum, auto
-
-from .schema import Column
-
+from enum import Enum
 
 class Meta(Enum):
     def __str__(self):
-        return f"{str(self.name).lower()}"
+        return f"{self.__class__.__name__.lower()}.{super().__str__()}"
 
 
 class Schema(Meta):
-
-    def __init__(self, value):
-        cls = self.__class__
-        self.value.schema = cls
-
-    @classmethod
-    def tables(cls):
-        return list(col for col in cls.__iter__())
+    def __new__(cls, value):
+        value.schema = cls.__name__.lower()
+        value.primary_key = value.__dict__.get('__primary_key__')
+        value.foreign_keys = value.__dict__.get('__foreign_keys__')
+        return value
 
     def __str__(self):
         return f"{self.__class__.__name__.lower()}.{super().__str__()}"
-
-    @property
-    def primary_key(self):
-        return getattr(self.value, '_primary_key')()
 
     def __getattr__(self, name):
         if name not in ('_value_'):
             return getattr(self.value, name)
         return super().__getattr__(name)
 
+    @classmethod
+    def create(cls):
+        # async def create(db):
+        #     schema = db.schema(cls.__name__.lower())
+        #     await schema.create(skip_if_exists=False)
+        #     fks = []
+        #     for table in cls:
+        #         t = db.table(table._name_.lower(), schema=schema)
+        #         if await t.exists(): continue
+        #         cols = []
+        #         for c in table:
+        #             primary_key = c.getattr('primary_key', False)
+        #             col = Column(c._name_.lower(), c.data_type, primary_key=primary_key, **c.options)
+        #             if t.foreign_keys and c.name in getattr(table, 'foreign_keys', []):
+        #                 fks.append(types.ForeignKey(t, col, sql_type=c.data_type))
+        #             cols.append(col)
+        #         await t.create(*cols)
+        #     for fkey in fks:
+        #         await db.execute_transaction(fk.to_sql())
+        
+        # return create
+        pass
 
 class Table(int, Meta):
     _ignore_ = ('data_type')
@@ -37,35 +49,34 @@ class Table(int, Meta):
     def __new__(cls, data_type, options=None):
         value = len(cls.__members__) + 1
         enum_class = super().__new__(cls, value)
-        
+
         enum_class._value_ = value
         enum_class.data_type = data_type
 
-        primary_key = cls.__dict__.get('__primary_key__')
-        if isinstance(primary_key, (tuple, str)):
-            cls.primary_key = primary_key
+        # if data_type in ['integer', 'serial']:
+        #     enum_class.data_type = types.Integer(auto_increment=data_type == 'serial')
+        # elif data_type == 'smallint':
+        #     enum_class.data_type = types.Integer(small=True)
+        # elif data_type == 'bigint':
+        #     enum_class.data_type = types.Integer(big=True)
+        # elif data_type in ['varchar', 'text']:  
+        #     enum_class.data_type = types.String()
+        # elif data_type == 'jsonb':
+        #     enum_class.data_type = types.JSON()
+        # elif data_type == 'double':
+        #     enum_class.data_type = types.Double()
+        # elif data_type == 'boolean':
+        #     enum_class.data_type = types.Boolean()
+        # elif data_type == 'date':
+        #     enum_class.data_type = types.Date()
 
-        cls.foreign_keys = {}
+        # from re import search
+        # if search(r'(\[\])', data_type):
+        #     enum_class.data_type = types.ArraySQL(enum_class.data_type)
 
-        foreign_keys = cls.__dict__.get('__foreign_keys__')
-        if foreign_keys:
-            for k, v in foreign_keys.items():
-                cls.foreign_keys[k] = v
-        
-        cls.columns = cls._columns()
-
-        if options and isinstance(options, dict):
-            for k, v in options.items():
-                setattr(enum_class, k, v)
+        enum_class.options = options if options else {}
 
         return enum_class
-    
-    def __repr__(self):
-        return f"<Column table={RMDB(self.__class__).name} column={self.name} data_type={self.data_type}>"
-    
-    @classmethod
-    def _columns(cls):
-        return list(str(col) for col in cls.__iter__())
 
 
 class ItemConsumeableData(Table):
@@ -127,12 +138,12 @@ class ItemData(Table):
     STATE_CHANGE_ITEM       = ("integer")
     LEVEL_FOR_MAKER         = ("smallint")
     NPC                     = ("integer")
-    FLAGS                   = ("varchar[]", {"default": "'{}'::varchar[]"})
+    FLAGS                   = ("varchar[]", {"default": "'{}'"})
     PET_LIFE_EXTEND         = ("smallint")
     MAPLE_POINT             = ("integer")
     MONEY_MIN               = ("integer")
     MONEY_MAX               = ("integer")
-    EXP_RATE                = ("double precision")
+    EXP_RATE                = ("double")
     ADD_TIME                = ("smallint")
     SLOT_INDEX              = ("smallint")
 
@@ -141,8 +152,8 @@ class ItemData(Table):
 
 class ItemEquipData(Table):
     ITEM_ID                 = ("integer")
-    FLAGS                   = ("varchar[]", {"default": "'{}'::varchar[]"})
-    EQUIP_SLOTS             = ("varchar[]", {"default": "'{}'::varchar[]"})
+    FLAGS                   = ("varchar[]", {"default": "'{}'"})
+    EQUIP_SLOTS             = ("varchar[]", {"default": "'{}'"})
     ATTACK_SPEED            = ("smallint", {"default": 0})
     RUC                     = ("smallint", {"default": 0})
     REQ_STR                 = ("smallint", {"default": 0})
@@ -150,7 +161,7 @@ class ItemEquipData(Table):
     REQ_INT                 = ("smallint", {"default": 0})
     REQ_LUK                 = ("smallint", {"default": 0})
     REQ_FAME                = ("smallint", {"default": 0})
-    REQ_JOB                 = ("smallint[]", {"default": "'{}'::smallint[]"})
+    REQ_JOB                 = ("smallint[]", {"default": "'{}'"})
     HP                      = ("smallint", {"default": 0})
     HP_PERCENTAGE           = ("smallint", {"default": 0})
     MP                      = ("smallint", {"default": 0})
@@ -168,8 +179,8 @@ class ItemEquipData(Table):
     AVOID                   = ("smallint", {"default": 0})
     JUMP                    = ("smallint", {"default": 0})
     SPEED                   = ("smallint", {"default": 0})
-    TRACTION                = ("double precision", {"default": 0})
-    RECOVERY                = ("double precision", {"default": 0})
+    TRACTION                = ("double", {"default": 0})
+    RECOVERY                = ("double", {"default": 0})
     KNOCKBACK               = ("smallint", {"default": 0})
     TAMING_MOB              = ("smallint", {"default": 0})
     DURABILITY              = ("integer", {"default": "'-1'::integer"})
@@ -212,19 +223,19 @@ class MapData(Table):
     MAP_NAME            = ("text", {"default": "''::text"})
     STREET_NAME         = ("text", {"default": "''::text"})
     MAP_MARK            = ("text", {"default": "''::text"})
-    FLAGS               = ("varchar[]", {"default": "'{}'::varchar[]"})
-    MOB_RATE            = ("double precision", {"default": 1.0})
+    FLAGS               = ("varchar[]", {"default": "'{}'"})
+    MOB_RATE            = ("double", {"default": 1.0})
     FIXED_MOB_CAPACITY  = ("smallint")
     SPAWN_MOB_INTERVAL  = ("smallint")
-    DROP_RATE           = ("double precision", {"default": 1.0})
-    REGEN_RATE          = ("double precision", {"default": 1.0})
+    DROP_RATE           = ("double", {"default": 1.0})
+    REGEN_RATE          = ("double", {"default": 1.0})
     SHUFFLE_NAME        = ("text", {"default": "NULL::varchar"})
     DEFAULT_BGM         = ("text", {"default": "NULL::varchar"})
     EFFECT              = ("text", {"default": "NULL::varchar"})
     MIN_LEVEL_LIMIT     = ("smallint")
     MAX_LEVEL_LIMIT     = ("smallint")
     TIME_LIMIT          = ("smallint")
-    DEFAULT_TRACTION    = ("double precision", {"default": 1})
+    DEFAULT_TRACTION    = ("double", {"default": 1})
     MAP_LTX             = ("smallint")
     MAP_LTY             = ("smallint")
     MAP_RBX             = ("smallint")
@@ -288,7 +299,7 @@ class MapLife(Table):
     MIN_CLICK_POS   = ("smallint")
     MAX_CLICK_POS   = ("smallint")
     RESPAWN_TIME    = ("integer")
-    FLAGS           = ("varchar[]", {"default": "'{}'::varchar[]"})
+    FLAGS           = ("varchar[]", {"default": "'{}'"})
     CY              = ("smallint")
     FACE            = ("boolean", {"default": 0})
     HIDE            = ("boolean", {"default": 0})
@@ -299,7 +310,7 @@ class MapLife(Table):
 class MapPortals(Table):
     MAP_ID              = ("integer")
     ID                  = ("smallint")
-    LABEL               = ("text")
+    NAME                = ("text")
     X_POS               = ("smallint")
     Y_POS               = ("smallint")
     DESTINATION         = ("integer")
@@ -334,7 +345,7 @@ class MapTimedMobs(Table):
 class MobData(Table):
     MOB_ID                  = ("integer")
     MOB_LEVEL               = ("smallint")
-    FLAGS                   = ("varchar[]", {"default": "'{}'::varchar[]"})
+    FLAGS                   = ("varchar[]", {"default": "'{}'"})
     HP                      = ("integer")
     HP_RECOVERY             = ("integer")
     MP                      = ("integer")
@@ -347,7 +358,7 @@ class MobData(Table):
     SUMMON_TYPE             = ("smallint")
     DEATH_BUFF              = ("integer")
     DEATH_AFTER             = ("integer")
-    TRACTION                = ("double precision", {"default": 1.0})
+    TRACTION                = ("double", {"default": 1.0})
     DAMAGED_BY_SKILL_ONLY   = ("smallint")
     DAMAGED_BY_MOB_ONLY     = ("integer")
     DROP_ITEM_PERIOD        = ("smallint")
@@ -523,7 +534,7 @@ class Character(Table):
     WORLD_ID    = ("smallint")
 
     __primary_key__ = ("ID",)
-    __foreign_keys__ = ({"ACCOUNT_ID": Account.ID})
+    __foreign_keys__ = ({"account_id": "accounts.id"})
 
 
 class InventoryEquipment(Table):
@@ -563,7 +574,7 @@ class InventoryEquipment(Table):
     RUC                 = ("smallint")
 
     __primary_key__     = ("inventory_item_id")
-    __foreign_keys__ = ({"INVENTORY_ITEM_ID": "inventory_items.inventory_item_id"})
+    __foreign_keys__    = {"INVENTORY_ITEM_ID": "inventory_items.inventory_item_id"}
 
 
 class InventoryItems(Table):
@@ -604,5 +615,3 @@ class Maplestory(Schema):
     # INVENTORY_PETS      = InventoryPets
     # KEYMAP              = Keymap
     # SKILLS              = Skills
-
-print(Maplestory.ACCOUNTS.foreign_keys)

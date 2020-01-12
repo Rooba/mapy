@@ -94,3 +94,4 @@ class Manager(list):
 
     def first_or_default(self, func):
         return next((val for val in self if func(val)), None)
+
