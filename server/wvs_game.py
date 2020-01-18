@@ -134,7 +134,7 @@ class WvsGame(ServerBase):
                 await script.proceed_back()
             elif resp == 1:
                 await script.proceed_next(resp)
-        
+
     @packet_handler(CRecvOps.CP_UpdateGMBoard)
     async def handle_update_gm_board(self, client, packets):
         pass
@@ -142,5 +142,4 @@ class WvsGame(ServerBase):
     @packet_handler(CRecvOps.CP_RequireFieldObstacleStatus)
     async def handle_require_field_obstacle(self, client, packets):
         pass
-
 
