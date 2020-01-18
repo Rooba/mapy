@@ -731,6 +731,7 @@ class Query:
         self._limit = None
         self._offset = None
         self._inner_join = None
+        self._left_join = None
         self.conditions = SQLConditions(parent=self)
         self.where = self.conditions.queue_conditions
         self.having = self.conditions.add_having
@@ -820,6 +821,13 @@ class Query:
         
         self._inner_join = [table_name, key]
         return self
+    
+    def left_join(self, table_name, key):
+        if not isinstance(key, str):
+            raise TypeError("Method 'using' only accepts a string argument.")
+        
+        self._left_join = [table_name, key]
+        return self
 
     def sql(self, delete=False, raw=False):
         sql = []
@@ -838,7 +846,10 @@ class Query:
                 sql.append(f"{select_str} {', '.join(select_names)}")
         table_names = [t.full_name for t in self._from]
         sql.append(f"FROM {', '.join(table_names)}")
-        if self._inner_join:
+        if self._left_join:
+            sql.append(f"LEFT JOIN {self._left_join[0]} USING ({self._left_join[1]}) ")
+
+        elif self._inner_join:
             sql.append(f"INNER JOIN {self._inner_join[0]} USING ({self._inner_join[1]}) ")
 
         if self.conditions._queued_conditions:

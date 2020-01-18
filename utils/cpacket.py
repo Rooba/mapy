@@ -347,9 +347,10 @@ class CPacket:
         packet.encode_int(npc.life_id)
 
         packet.encode_short(npc.x)
-        packet.encode_short(npc.cy)
+        packet.encode_short(abs(npc.cy))
         packet.encode_byte(npc.f != 1)
         packet.encode_short(npc.foothold)
+
         packet.encode_short(npc.rx0)
         packet.encode_short(npc.rx1)
 
@@ -357,6 +358,24 @@ class CPacket:
 
         return packet
 
+    @staticmethod
+    def npc_script_message(npc, msg_type, msg, end_bytes, type_, other_npc):
+        packet = packets.Packet(op_code=CSendOps.LP_ScriptMessage)
+
+        packet.encode_byte(4)
+        packet.encode_int(npc)
+        packet.encode_byte(msg_type)
+        packet.encode_byte(type_)
+
+        if type_ in [4, 5]:
+            packet.encode_int(other_npc)
+        
+        packet.encode_string(msg)
+
+        if end_bytes:
+            packet.encode(bytes(end_bytes))
+        
+        return packet
 
     @staticmethod
     def broadcast_server_msg(msg):
@@ -372,10 +391,3 @@ class CPacket:
         
         packet.encode_string(msg)
         return packet
-
-    @staticmethod    
-    def cclient_opt_man__encode_opt(packet, opt_count):
-        packet.encode_short(opt_count)
-
-        for i in range(opt_count):
-            packet.encode_long(i + 1)

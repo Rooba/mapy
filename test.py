@@ -1,9 +1,11 @@
-class Foo:
-    def __init__(self, a):
-        self.a = a
+from struct import pack
+from timeit import timeit
 
-foo = Foo(1)
+def use_struct():
+    pack('H', 65535)
 
-a = {foo: 2}
+def use_bitwise():
+    bytes([65535 >> 8, 65535 & 0xFF])
 
-print(a.get(foo))
+print(timeit(use_struct, number=100000))
+print(timeit(use_bitwise, number=100000))

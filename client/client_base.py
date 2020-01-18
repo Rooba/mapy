@@ -6,6 +6,8 @@ from common.constants import VERSION, SUB_VERSION, LOCALE
 from asyncio import create_task
 from random import randint
 
+from time import time
+
 from utils import log
 
 
@@ -21,8 +23,6 @@ class ClientBase:
         self.channel_id = None
 
     async def initialize(self):
-        self._parent._loop.create_task(self.receive())
-
         self.m_socket.m_siv = MapleIV(randint(0, 2**31-1))
         # self.m_socket.m_siv = MapleIV(100)
         self.m_socket.m_riv = MapleIV(randint(0, 2**31-1))
@@ -35,41 +35,42 @@ class ClientBase:
         packet.encode_int(self.m_socket.m_siv.value)
         packet.encode_byte(LOCALE)
 
-        return await self.send_packet_raw(packet)
+        await self.send_packet_raw(packet)
+        
+        await self.m_socket.receive(self)
 
-    async def receive(self):
-        self._is_alive = True
+    # async def receive(self):
+    #     self._is_alive = True
 
-        while self._is_alive:
-            m_recv_buffer = await self.sock_recv()
+    #     while self._is_alive:
+    #         m_recv_buffer = await self.sock_recv()
 
-            if not m_recv_buffer:
-                self._parent.on_client_disconnect(self)
-                return
+    #         if not m_recv_buffer:
+    #             self._parent.on_client_disconnect(self)
+    #             return
+    #         if self.m_socket.m_riv:
+    #             m_recv_buffer = self.manipulate_buffer(m_recv_buffer)
 
-            if self.m_socket.m_riv:
-                m_recv_buffer = self.manipulate_buffer(m_recv_buffer)
-
-            self.dispatch(Packet(m_recv_buffer))
+    #         self.dispatch(Packet(m_recv_buffer))
 
     def dispatch(self, packet):
         self._parent.dispatcher.push(self, packet)
 
-    async def sock_recv(self):
-        return await self.m_socket.sock_recv()
+    # async def sock_recv(self):
+    #     return await self.m_socket.sock_recv()
 
     async def send_packet(self, packet):
-        log.packet(f"{packet.name} {self.ip} {packet.debug_string}", "out")
+        log.packet(f"{packet.name} {self.ip} {packet.to_string()}", "out")
 
         await self.m_socket.send_packet(packet)
 
     async def send_packet_raw(self, packet):
-        log.packet(f"{packet.name} {self.ip} {packet.debug_string}", "out")
+        log.packet(f"{packet.name} {self.ip} {packet.to_string()}", "out")
 
         await self.m_socket.send_packet_raw(packet)
 
-    def manipulate_buffer(self, buffer):
-        return self.m_socket.manipulate_buffer(buffer)
+    # def manipulate_buffer(self, buffer):
+    #     return self.m_socket.manipulate_buffer(buffer)
 
     @property
     def parent(self):

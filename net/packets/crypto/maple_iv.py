@@ -32,12 +32,38 @@ class MapleIV:
     def loword(self):
         return self.value
 
+    # def shuffle(self):
+    #     def to_int(arr):
+    #         return (seed[0] & 0xFF) + (seed[1] << 8 & 0xFF)\
+    #                 + (seed[2] << 16 & 0xFF) + (seed[3] << 24 * 0xFF)
+        
+    #     def to_arr(int_):
+    #         return [
+    #             int_ & 0xFF,
+    #             int_ >> 8 & 0xFF,
+    #             int_ >> 16 & 0xFF,
+    #             int_ >> 24 & 0xFF
+    #         ]
+
+    #     seed = [0xf2, 0x53, 0x50, 0xc6]
+    #     p_iv = self.value
+
+    #     for i in range (4):
+    #         temp_iv = (p_iv >> (8 * i)) & 0xFF
+    #         seed[0] += (self._shuffle[seed[1] & 0xFF]) - temp_iv
+    #         seed[1] -= seed[2] ^ (self._shuffle[temp_iv])
+    #         seed[2] ^= temp_iv + (self._shuffle[seed[3]])
+    #         seed[3] = seed[3] - seed[0] + (self._shuffle[temp_iv])
+    #         seed = to_arr((to_int(seed) << 3) | (to_int(seed) >> 29))
+        
+    #     self.value = to_int(seed)
+
     def shuffle(self):
         seed = [0xf2, 0x53, 0x50, 0xc6]
         p_iv = self.value
 
         for i in range (4):
-            temp_p_iv = int((p_iv >> (8 * i))) & 255
+            temp_p_iv = (p_iv >> (8 * i)) & 0xFF
             
             a = seed[1]
             b = a
@@ -50,32 +76,29 @@ class MapleIV:
             seed[1] = a
             a = seed[3]
             b = a
-            a -= int(seed[0] & 0xFF)
-            b = self._shuffle[int(b & 0xFF)]
+            a -= seed[0] & 0xFF
+            b = self._shuffle[b & 0xFF]
             b += temp_p_iv
             b ^= seed[2]
-            seed[2] = b
-            a += int(self._shuffle[int(temp_p_iv) & 0xFF]) & 0xFF
+            seed[2] = b & 0xFF
+            a += self._shuffle[temp_p_iv & 0xFF] & 0xFF
             seed[3] = a
 
             c = seed[0] & 0xFF
-            c |= (seed[1] << 8) & 0xFF00
-            c |= (seed[2] << 16) & 0xFF0000
-            c |= (seed[3] << 24) & 0xFF000000
+            c |= (seed[1] << 8) & 0xFFFF
+            c |= (seed[2] << 16) & 0xFFFFFF
+            c |= (seed[3] << 24) & 0xFFFFFFFF
 
-            d = c
-            d >>= 0x1D
-            c <<= 0x03
-            c |= d
+            c = (c << 0x03) | (c >> 0x1D)
 
             seed[0] = c & 0xFF
-            seed[1] = (c >> 8) & 0xFF
-            seed[2] = (c >> 16) & 0xFF
-            seed[3] = (c >> 24) & 0xFF
+            seed[1] = (c >> 8) & 0xFFFF
+            seed[2] = (c >> 16) & 0xFFFFFF
+            seed[3] = (c >> 24) & 0xFFFFFFFF
 
-            c = seed[0] & 0xFF
-            c |= (seed[1] << 8) & 0xFF00
-            c |= (seed[2] << 16) & 0xFF0000
-            c |= (seed[3] << 24) & 0xFF000000
+        c = seed[0] & 0xFF
+        c |= (seed[1] << 8) & 0xFFFF
+        c |= (seed[2] << 16) & 0xFFFFFF
+        c |= (seed[3] << 24) & 0xFFFFFFFF
 
         self.value = c

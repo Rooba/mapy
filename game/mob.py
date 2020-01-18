@@ -44,7 +44,7 @@ class Mob(Life):
         packet.encode_short(self.pos.foothold)
         packet.encode_short(self.pos.foothold)
 
-        packet.encode_byte(-2)
+        packet.encode_byte(abs(-2))
 
         packet.encode_byte(0)
         packet.encode_int(0)

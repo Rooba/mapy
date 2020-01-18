@@ -8,3 +8,4 @@ from utils import MapPos
 class Npc(Life):
     def __post_init__(self):
         self.pos = MapPos(self.x, self.cy, self.foothold)
+        self.id = self.life_id

@@ -1,5 +1,5 @@
 from asyncio import create_task, get_event_loop, wait_for, sleep
-from socket import socket, SO_REUSEADDR, SOL_SOCKET, AF_INET, SOCK_STREAM
+from socket import socket, SO_REUSEADDR, SOL_SOCKET, AF_INET, SOCK_STREAM, IPPROTO_TCP, TCP_NODELAY
 
 from utils import log
 
@@ -28,7 +28,8 @@ class ClientListener(object):
 
         self._serv_sock = socket(AF_INET, SOCK_STREAM)
         self._serv_sock.setblocking(0)
-        self._serv_sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+        # self._serv_sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+        self._serv_sock.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
         self._serv_sock.bind(self._connection)
         self._serv_sock.listen(0)
 
@@ -42,5 +43,7 @@ class ClientListener(object):
         while self.is_alive:
             client_sock, _ = await self._loop.sock_accept(self._serv_sock)
             client_sock.setblocking(0)
+            # client_sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+            client_sock.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
 
             create_task(self._parent.on_client_accepted(client_sock))

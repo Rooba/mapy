@@ -1,5 +1,6 @@
 from enum import Enum
 from io import BytesIO
+from struct import pack, unpack
 
 from . import CRecvOps
 from utils.tools import to_string
@@ -29,8 +30,6 @@ class ByteBuffer(BytesIO):
 
     def __init__(self, initial_bytes):
         super().__init__(initial_bytes)
-        self._debug_string = ""
-        self._last_debug_encode = ""
         self._string_len = 0
     
     def to_debug(self, val, type_, string_len = 0):
@@ -80,32 +79,28 @@ class ByteBuffer(BytesIO):
             else:
                 self._debug_string += " "
 
-    def encode_byte(self, byte):
-        if isinstance(byte, Enum):
-            byte = byte.value
+    def encode(self, _bytes):
+        self.write(_bytes)
+        return self
+
+    def encode_byte(self, value):
+        if isinstance(value, Enum):
+            value = value.value
         
-        bytes_ = (byte).to_bytes(1, 'little')
-        self.write(bytes_)
-        self.to_debug(bytes_, 1)
+        self.write(bytes([value]))
 
         return self
 
-    def encode_short(self, short):
-        bytes_ = (short).to_bytes(2, 'little')
-        self.write(bytes_)
-        self.to_debug(bytes_, 2)
+    def encode_short(self, value):
+        self.write(pack('H', value))
         return self
 
-    def encode_int(self, int_):
-        bytes_ = (int_).to_bytes(4, 'little')
-        self.write(bytes_)
-        self.to_debug(bytes_, 4)
+    def encode_int(self, value):
+        self.write(pack('I', value))
         return self
     
-    def encode_long(self, long):
-        bytes_ = (long).to_bytes(8, 'little')
-        self.write(bytes_)
-        self.to_debug(bytes_, 8)
+    def encode_long(self, value):
+        self.write(pack('Q', value))
         return self
 
     def encode_buffer(self, buffer):
@@ -117,13 +112,10 @@ class ByteBuffer(BytesIO):
         return self
 
     def encode_string(self, string):
-        bytes_ = (len(string)).to_bytes(2, 'little')
-        self.write(bytes_)
-        self.to_debug(bytes_, 2)
+        self.write(pack('H', len(string)))
 
         for ch in string:
             self.write(ch.encode())
-            self.to_debug(ch.encode(), 10, len(string))
         
         return self
 
@@ -131,33 +123,37 @@ class ByteBuffer(BytesIO):
         for i in range(13):
             if i < len(string):
                 self.write(string[i].encode())
-                self.to_debug(string[i].encode(), 10, length)
                 continue
             
             self.encode_byte(0)
         
         return self
 
+    def encode_hex_string(self, string):
+        string = string.strip(' -')
+        self.write(bytes.fromhex(string))
+        return self
+
     def decode_byte(self):
-        return (int).from_bytes(self.read(1), 'little')
+        return self.read(1)[0]
     
     def decode_bool(self):
         return bool(self.decode_byte())
     
     def decode_short(self):
-        return (int).from_bytes(self.read(2), 'little')
+        return unpack('H', self.read(2))[0]
 
     def decode_int(self):
-        return (int).from_bytes(self.read(4), 'little')
+        return unpack('I', self.read(4))[0]
     
     def decode_long(self):
-        return (int).from_bytes(self.read(8), 'little')
+        return unpack('Q', self.read(8))[0]
 
     def decode_buffer(self, size):
         return self.read(size)
 
     def decode_string(self):
-        length = (int).from_bytes(self.read(2), 'little')
+        length = self.decode_short()
         string = ""
 
         for _ in range(length):
@@ -198,55 +194,8 @@ class Packet(ByteBuffer):
 
         if raw:
             return
-        
-        # For debug string, giving whether byte, short, int
-        # long, or string
-        seg_type = self.decode_byte()
 
-        try:
-            self.op_code = CRecvOps(self.decode_short())
-        
-        except ValueError:
-            # Not using debug packets in client, use default
-            self.seek(0)
-            self.op_code = CRecvOps(self.decode_short())
-            return 
-
-        packet = Packet(op_code = self.op_code)
-        i = len(data) - 3
-
-        while i > 0:
-            seg_type = self.decode_byte()
-
-            if seg_type == 1:
-                packet.encode_byte(self.decode_byte())
-                i -= 2
-            
-            elif seg_type == 2:
-                packet.encode_short(self.decode_short())
-                i -= 3
-            
-            elif seg_type == 4:
-                packet.encode_int(self.decode_int())
-                i -= 5
-            
-            elif seg_type % 8 == 0:
-                num = int(seg_type / 8)
-
-                for _ in range(num):
-                    packet.encode_long(self.decode_long())
-                
-                i -= 1 + (8 * num)
-
-            elif seg_type == 10:
-                str_ = self.decode_string()
-                packet.encode_string(str_)
-                i -= (len(str_) + 3)
-        
-
-        super().__init__(packet.getvalue())
-        self.seek(2)
-        self._debug_string = packet._debug_string
+        self.op_code = CRecvOps(self.decode_short())
 
     @property
     def name(self):

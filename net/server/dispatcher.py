@@ -25,8 +25,7 @@ class Dispatcher:
     #             self._run_event(coro, client, packet))
 
     def push(self, client, packet):
-        log.packet(
-            f"{self.parent.name} {packet.name} {client.ip} {packet.debug_string}", "in")
+        log.packet(f"{self.parent.name} {packet.name} {client.ip} {packet.debug_string}", "in")
 
         try:
             coro = None

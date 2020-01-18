@@ -99,7 +99,7 @@ class ServerApp:
         self = ServerApp()
 
         log.info("Initializing HTTP API")
-        # self._http_api.run()
+        self._http_api.run()
 
         loop = self._loop
 

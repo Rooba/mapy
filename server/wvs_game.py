@@ -4,6 +4,7 @@ from net.packets.opcodes import CRecvOps
 from net.packets import crypto, Packet
 from net.packets.packet import packet_handler
 from .server_base import ServerBase
+from scripts.npc import NpcScript
 from utils import CPacket
 
 class WvsGame(ServerBase):
@@ -47,10 +48,10 @@ class WvsGame(ServerBase):
         if field:
             return field
         
-        self.field_manager[field_id] = await self.data.field.get(field_id)
+        field = await self.data.field.get(field_id)
+        self.field_manager[field_id] = field
 
-        return self.field_manager[field_id]
-
+        return field
 
     @packet_handler(CRecvOps.CP_MigrateIn)
     async def handle_migrate_in(self, client, packet):
@@ -75,8 +76,8 @@ class WvsGame(ServerBase):
 
         client.character = req.character
         field = await self.get_field(client.character.field_id)
-        await field.add(client)
 
+        await field.add(client)
         await client.send_packet(CPacket.claim_svr_changed(True))
         await client.send_packet(CPacket.set_gender(client.character.stats.gender))
         await client.send_packet(CPacket.func_keys_init(client.character.func_keys))
@@ -95,3 +96,30 @@ class WvsGame(ServerBase):
         client.character.position.decode_move_path(move_path)    
         field = await client.get_field()
         await field.broadcast(CPacket.user_movement(client.character.id, move_path), client)
+    
+    @packet_handler(CRecvOps.CP_UserSelectNpc)
+    async def handle_user_select_npc(self, client, packet):
+        obj_id = packet.decode_int()
+        x = packet.decode_short()
+        y = packet.decode_short()
+
+        if client.npc_script:
+            pass # client has npc script already?
+        
+        field = await client.get_field()
+        npc = field.npcs.get(obj_id)
+
+        if npc:
+            client.npc_script = NpcScript.get_script(npc.id, client)
+            await client.npc_script.execute()
+
+
+    @packet_handler(CRecvOps.CP_UpdateGMBoard)
+    async def handle_update_gm_board(self, client, packets):
+        pass
+    
+    @packet_handler(CRecvOps.CP_RequireFieldObstacleStatus)
+    async def handle_require_field_obstacle(self, client, packets):
+        pass
+
+

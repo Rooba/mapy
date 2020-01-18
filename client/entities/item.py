@@ -52,7 +52,7 @@ class ItemSlotBase(abc.WildcardData):
         if self.cisn:
             packet.encode_long(self.cisn)
 
-        packet.encode_long(150841440000000000)
+        packet.encode_long(0)
 
 @dataclass
 class ItemSlotEquip(ItemSlotBase):

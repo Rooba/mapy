@@ -81,13 +81,30 @@ class Character(abc.Serializable):
         packet.encode_int(0)
         packet.encode_int(0)
 
+        equipped = {}
+
+        for index, item in self.equip_inventory.items.items():
+            if index < 0:
+                equipped[index] = self.equip_inventory[index]
+
+        stickers, eqp_normal = {}, {}
+
+        if equipped.get(-11):
+            eqp_normal[-11] = equipped.pop(-11)
+
+        for index, item in equipped.items():
+            if index > -100 and equipped.get(index - 100):
+                eqp_normal[index] = item
+            
+            else:
+                new_index = index + 100 if index < -100 else index
+                stickers[new_index] = item
+
         inv_equip = {slot: item for slot, item in self.equip_inventory.items.items() if slot >= 0}
-        equipped = {slot: item for slot, item in self.equip_inventory.items.items() if slot >= -100 and slot < 0}
-        equipped2 = {slot: item for slot, item in self.equip_inventory.items.items() if slot >= -1000 and slot < -100}
         dragon_equip = {slot: item for slot, item in self.equip_inventory.items.items() if slot >= -1100 and slot < -1000}
         mechanic_equip = {slot: item for slot, item in self.equip_inventory.items.items() if slot >= -1200 and slot < -1100}
         
-        for inv in [equipped, equipped2, inv_equip, dragon_equip, mechanic_equip]:
+        for inv in [eqp_normal, stickers, inv_equip, dragon_equip, mechanic_equip]:
             for slot, item in inv.items():
                 if not item:
                     continue

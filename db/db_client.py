@@ -9,9 +9,10 @@ from client.entities import Account as Acc, Character,\
      item as Item, FuncKey, SkillEntry, Portal, Foothold
 from game.field import Field as field
 from game.mob import Mob
+from game.npc import Npc
 from utils import log, get
 from .schema import Table, Query, Insert, Update,\
-     Schema, IntColumn, ListArguments
+     Schema, IntColumn, ListArguments, StringColumn
 from .structure import RMDB, Maplestory
 
 
@@ -456,14 +457,19 @@ class Field:
         mob_column = IntColumn('mob_id')
 
         mobs = self._db.query('rmdb.mob_data', 'life')\
-            .select('mob_data.*', 'mob_data.mob_id as life_id', distinct=True)\
-                .where(mob_column.in_(life_column))
+            .select('mob_data.*', 'life.life_type', 'mob_data.mob_id', distinct=True)\
+                .where(StringColumn('life.life_type').__eq__('mob'), mob_column.in_(life_column))
         
-        all_mobs = await self._db.query()\
+        all_life = self._db.query()\
             .with_(('life', life), ('mobs', mobs))\
-                .table('life').inner_join('mobs', 'life_id').get()
+                .table('life').left_join('mobs', 'life_type')
 
-        for mob in all_mobs:
-            _field.mobs.add(Mob(**mob))
+        all_life = await all_life.get()
+
+        for life_obj in all_life:
+            if life_obj['life_type'] == 'mob':
+                _field.mobs.add(Mob(**life_obj))
+            elif life_obj['life_type'] == 'npc':
+                _field.npcs.add(Npc(**life_obj))
         
         return _field
