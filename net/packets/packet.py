@@ -31,53 +31,6 @@ class ByteBuffer(BytesIO):
     def __init__(self, initial_bytes):
         super().__init__(initial_bytes)
         self._string_len = 0
-    
-    def to_debug(self, val, type_, string_len = 0):
-        
-        debug_type = type_
-
-        _iter = debug_codes[type_ if type_ < 8 else type_ - 2]
-        color, codes = _iter
-        first, second = codes
-
-        if not isinstance(val, bytes):
-            val = (val).to_bytes(type_, 'little') if isinstance(val, int) else val.encode()
-
-        if debug_type != 10 and self._string_len != 0:
-            color = self._last_debug_encode
-            first = '@'
-            second = '&' if self._last_debug_encode.startswith('l') else first
-
-            self._debug_string += to_string(val)
-            self._string_len -= 1
-            self._debug_string += second + " " if self._string_len == 0 else " "
-
-        elif debug_type != 10:
-            if self._last_debug_encode == color:
-                color = color.strip('l') if color.startswith('l') else 'l' + color
-                second = '&' if second != '&' else first
-
-            self._debug_string += (f"--{first}{to_string(val)}{second} ")
-            self._last_debug_encode = color
-            return
-        
-        else:
-            if self._string_len == 0:
-                self._string_len = string_len
-                self._debug_string += '--' + first
-
-                if self._last_debug_encode == color:
-                    color = color.strip('l') if color.startswith('l') else 'l' + color
-                    second = first if second != '&' else '&'
-                
-            self._debug_string += to_string(val)
-            self._string_len -= 1
-
-            if self._string_len == 0:
-                self._debug_string += second + " "
-            
-            else:
-                self._debug_string += " "
 
     def encode(self, _bytes):
         self.write(_bytes)
@@ -88,7 +41,6 @@ class ByteBuffer(BytesIO):
             value = value.value
         
         self.write(bytes([value]))
-
         return self
 
     def encode_short(self, value):
@@ -209,10 +161,6 @@ class Packet(ByteBuffer):
 
     def to_string(self):
         return to_string(self.getvalue())
-
-    @property
-    def debug_string(self):
-        return self._debug_string if self._debug_string != "" else self.to_string()
 
     def __len__(self):
         return len(self.getvalue())

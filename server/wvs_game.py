@@ -5,7 +5,7 @@ from net.packets import crypto, Packet
 from net.packets.packet import packet_handler
 from .server_base import ServerBase
 from scripts.npc import NpcScript
-from utils import CPacket
+from utils import CPacket, log
 
 class WvsGame(ServerBase):
     def __init__(self, parent, port, world_id, channel_id):
@@ -113,7 +113,28 @@ class WvsGame(ServerBase):
             client.npc_script = NpcScript.get_script(npc.id, client)
             await client.npc_script.execute()
 
+    @packet_handler(CRecvOps.CP_UserScriptMessageAnswer)
+    async def handle_user_script_message_answer(self, client, packet):
+        script = client.npc_script
 
+        type_ = packet.decode_byte()
+        type_expected = script.last_msg_type
+
+        if type_ != type_expected:
+            log.debug(f"User answered type: [{type_}], expected [{type_expected}]")
+            return
+        
+        resp = packet.decode_byte()
+        log.info(f"Script response: [{resp}]")
+
+        if type_ == 0:
+            if resp == 255:
+                script.end_chat()
+            elif resp == 0:
+                await script.proceed_back()
+            elif resp == 1:
+                await script.proceed_next(resp)
+        
     @packet_handler(CRecvOps.CP_UpdateGMBoard)
     async def handle_update_gm_board(self, client, packets):
         pass

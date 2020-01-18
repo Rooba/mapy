@@ -24,16 +24,16 @@ def setup_logger():
 
         if match_message:
             if match_message.group("game"):
-                message = make_string(match_message.group("message"))
+                message = match_message.group("message")
                 server_name = f"<r>[</r><w>{match_message.group('name')}(<ly>{match_message.group('world_id')}</ly>)(<lg>{match_message.group('channel_id')}</lg>)</w><r>]</r>"
 
             else:
-                message = make_string(match_message.group("message"))
+                message = match_message.group("message")
                 server_name = f"<r>[</r><w>{match_message.group('name')}</w><r>]</r>"
         
         else:
             server_name = "<r>[</r>ServerApp<r>]</r>"
-            message = make_string(record['message'])
+            message = record['message']
 
         string = f"<lg>[</lg><level>{record['level']:^12}</level><lg>]</lg> {server_name} <level>{message}</level>"
         return string + "\n"
