@@ -1,23 +1,21 @@
-from .tag_point import TagPoint
-
 from net.packets import packet
 
-class MapPos:
+class MovePath:
     def __init__(self, x=0, y=0, foothold=0, position=0):
-        if position:
-            self.position = position
-        else:
-            self.position = TagPoint(x, y)
+        self.x = x
+        self.y = y
         self.foothold = foothold
         self.stance = position
+        self.vx = None
+        self.vy = None
 
     def decode_move_path(self, move_path):
-        ipacket = packet.Packet(move_path, raw=True)
+        ipacket = packet.ByteBuffer(move_path)
 
-        self.position.x = ipacket.decode_short()
-        self.position.y = ipacket.decode_short()
-        vx = ipacket.decode_short()
-        vy = ipacket.decode_short()
+        self.x = ipacket.decode_short()
+        self.y = ipacket.decode_short()
+        self.vx = ipacket.decode_short()
+        self.vy = ipacket.decode_short()
         
         size = ipacket.decode_byte()
 
@@ -25,8 +23,8 @@ class MapPos:
             cmd = ipacket.decode_byte()
 
             if cmd == 0:
-                self.position.x = ipacket.decode_short()
-                self.position.y = ipacket.decode_short()
+                self.x = ipacket.decode_short()
+                self.y = ipacket.decode_short()
                 xwob = ipacket.decode_short()
                 ywob = ipacket.decode_short()
                 self.foothold = ipacket.decode_short()
@@ -46,4 +44,4 @@ class MapPos:
                 break
     
     def __str__(self):
-        return f"Position: {self.position.x},{self.position.y} - Foothold: {self.foothold} - Stance: {self.stance}"
+        return f"Position: {self.x},{self.y} - Foothold: {self.foothold} - Stance: {self.stance}"

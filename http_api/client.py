@@ -1,7 +1,8 @@
 from aiohttp import ClientSession
 from loguru import logger
 
-from client.entities import Character, ItemSlotEquip
+from character import Character
+from game import ItemSlotEquip
 from common.constants import HTTP_API_ROUTE
 from utils import fix_dict_keys
 

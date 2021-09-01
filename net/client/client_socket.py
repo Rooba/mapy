@@ -19,8 +19,6 @@ class ClientSocket:
         self.recieve_size = 16384
         self.m_riv = None
         self.m_siv = None
-        self._r_counter = 0
-        self._s_counter = 0
         self._is_alive = False
         self._overflow = None
 
@@ -30,35 +28,30 @@ class ClientSocket:
 
     def close(self):
         return self._socket.close()
-        # return self._socket.shutdown(SHUT_RD)
 
     async def receive(self, client):
         self._is_alive = True
         while self._is_alive:
             if not self._overflow:
                 m_recv_buffer = await self._loop.sock_recv(self._socket, self.recieve_size)
-
                 if not m_recv_buffer:
-                    client._parent.on_client_disconnect(client)
+                    await client._parent.on_client_disconnect(client)
                     return
-            
+
             else:
                 m_recv_buffer = self._overflow
                 self._overflow = None
-                
+
             if self.m_riv:
                 async with self._lock:
                     length = MapleAes.get_length(m_recv_buffer)
                     if length != len(m_recv_buffer) - 4:
                         self._overflow = m_recv_buffer[length + 4:]
                         m_recv_buffer = m_recv_buffer[:length + 4]
-                    
+
                     m_recv_buffer = self.manipulate_buffer(m_recv_buffer)
 
             client.dispatch(Packet(m_recv_buffer))
-
-    # async def sock_recv(self):
-    #     return await self._loop.sock_recv(self._socket, self.recieve_size)
 
     async def send_packet(self, out_packet):
         packet_length = len(out_packet)
@@ -73,9 +66,6 @@ class ClientSocket:
             buf = shanda.encrypt_transform(buf)
             final[4:] = MapleAes.transform(buf, self.m_siv)
 
-        # p = BytesIO()
-        # p.write(final)
-        
         await self._loop.sock_sendall(self._socket, final)
 
     async def send_packet_raw(self, packet):

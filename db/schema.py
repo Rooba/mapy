@@ -1,17 +1,24 @@
 from itertools import zip_longest, chain
 from more_itertools import partition
+from typing import Any
 
-from . import types
+from .types import (
+    ArraySQL,
+    SQLType,
+    Boolean,
+    Datetime,
+    Decimal,
+    Integer,
+    Interval,
+    String,
+)
 from .errors import SchemaError, ResponseError, QueryError
-
-from utils import log
 
 
 class SQLOperator:
+    default_template = "{column} {operator} {value}"
 
-    default_template = '{column} {operator} {value}'
-
-    def __init__(self, sql_operator, python_operator, str_template):
+    def __init__(self, sql_operator: str, python_operator: str, str_template: str):
         self.sql = sql_operator
         self.python = python_operator
         self.template = str_template
@@ -24,65 +31,75 @@ class SQLOperator:
 
     @classmethod
     def lt(cls):
-        return cls('<', '<', cls.default_template)
+        return cls("<", "<", cls.default_template)
 
     @classmethod
     def le(cls):
-        return cls('<=', '<=', cls.default_template)
+        return cls("<=", "<=", cls.default_template)
 
     @classmethod
     def eq(cls):
-        return cls('=', '==', cls.default_template)
+        return cls("=", "==", cls.default_template)
 
     @classmethod
     def ne(cls):
-        return cls('!=', '!=', cls.default_template)
+        return cls("!=", "!=", cls.default_template)
 
     @classmethod
     def gt(cls):
-        return cls('>', '>', cls.default_template)
+        return cls(">", ">", cls.default_template)
 
     @classmethod
     def ge(cls):
-        return cls('>=', '>=', cls.default_template)
+        return cls(">=", ">=", cls.default_template)
 
     @classmethod
     def like(cls):
-        return cls('~~', None, cls.default_template)
+        return cls("~~", None, cls.default_template)
 
     @classmethod
     def ilike(cls):
-        return cls('~~*', None, cls.default_template)
+        return cls("~~*", None, cls.default_template)
 
     @classmethod
     def not_like(cls):
-        return cls('!~~', None, cls.default_template)
+        return cls("!~~", None, cls.default_template)
 
     @classmethod
     def not_ilike(cls):
-        return cls('!~~*', None, cls.default_template)
+        return cls("!~~*", None, cls.default_template)
 
     @classmethod
     def between(cls):
-        return cls(
-            'BETWEEN', None, '{column} {operator} {minvalue} AND {maxvalue}')
+        return cls("BETWEEN", None, "{column} {operator} {minvalue} AND {maxvalue}")
 
     @classmethod
     def in_(cls):
-        return cls('=', 'in', '{column} {operator} any({value})')
-    
+        return cls("=", "in", "{column} {operator} any({value})")
+
     @classmethod
     def in__(cls):
-        return cls('IN', 'in', '{column} {operator} ({value})')
+        return cls("IN", "in", "{column} {operator} ({value})")
 
     @classmethod
     def is_(cls):
-        return cls('IS', 'is', cls.default_template)
+        return cls("IS", "is", cls.default_template)
+
+
+class Column_:
+    pass
 
 
 class SQLComparison:
-    def __init__(self, operator, aggregate, column, value=None,
-                 min_value=None, max_value=None):
+    def __init__(
+        self,
+        operator: str,
+        aggregate: str,
+        column: Any,
+        value: int = None,
+        min_value: int = None,
+        max_value: int = None,
+    ):
         self.operator = operator
         self.format = operator.format
         self.aggregate = aggregate
@@ -97,40 +114,51 @@ class SQLComparison:
             return f"{self.aggregate}({self._column})"
         else:
             return str(self._column)
-    
+
     def __str__(self):
         return self.format(
             column=self.column,
             value=self.value,
             min_value=self.min_value,
-            max_value=self.max_value
+            max_value=self.max_value,
         )
 
 
 class Column:
-    __slots__ = ( 'data_type', 'primary_key', 'default',
-                  'nullable', 'unique', 'name', 'index', 
-                  'index_name', 'foreign_key', 'table',
-                  'aggregate')
+    __slots__ = (
+        "data_type",
+        "primary_key",
+        "default",
+        "nullable",
+        "unique",
+        "name",
+        "index",
+        "index_name",
+        "foreign_key",
+        "table",
+        "aggregate",
+    )
 
-    def __init__(self, 
-                name, 
-                data_type=None, 
-                *, 
-                primary_key=False, 
-                default=None, 
-                nullable=False, 
-                unique=False, 
-                foreign_key=None, 
-                table=None,
-                index=None, 
-                index_name=None):
-        
+    def __init__(
+        self,
+        name,
+        data_type=None,
+        *,
+        primary_key=False,
+        default=None,
+        nullable=False,
+        unique=False,
+        foreign_key=None,
+        table=None,
+        index=None,
+        index_name=None,
+    ):
+
         self.name = name
 
-        if not isinstance(data_type, types.SQLType):
-            raise TypeError('`data_type` must be of SQLType')
-        
+        if not isinstance(data_type, SQLType):
+            raise TypeError("`data_type` must be of SQLType")
+
         self.data_type = data_type
         self.primary_key = primary_key
         self.nullable = nullable
@@ -140,21 +168,22 @@ class Column:
         self.index_name = None
 
         if sum(map(bool, [primary_key, default is not None, unique])) > 1:
-            raise SchemaError("Only one of `default`, `primary_key`, or "\
-                                "`unique` may be present")
-        
+            raise SchemaError(
+                "Only one of `default`, `primary_key`, or " "`unique` may be present"
+            )
+
         if table and not isinstance(table, Table):
             raise SchemaError("`table` must be a `Table` object")
-        
+
         self.table = table
         self.aggregate = None
 
         if foreign_key:
             if not isinstance(foreign_key, Column):
                 raise SchemaError("`foreign_key` must be a `Column` object")
-                
+
         self.foreign_key = foreign_key
-    
+
     @property
     def full_name(self):
         return f"{self.table}.{self.name}" if self.table else self.name
@@ -166,63 +195,61 @@ class Column:
             return self.full_name
 
     def __lt__(self, value):
-        return SQLComparison(
-            SQLOperator.lt(), self.aggregate, self.full_name, value)
+        return SQLComparison(SQLOperator.lt(), self.aggregate, self.full_name, value)
 
     def __le__(self, value):
-        return SQLComparison(
-            SQLOperator.le(), self.aggregate, self.full_name, value)
+        return SQLComparison(SQLOperator.le(), self.aggregate, self.full_name, value)
 
     def __eq__(self, value):
-        return SQLComparison(
-            SQLOperator.eq(), self.aggregate, self.full_name, value)
+        return SQLComparison(SQLOperator.eq(), self.aggregate, self.full_name, value)
 
     def __ne__(self, value):
-        return SQLComparison(
-            SQLOperator.ne(), self.aggregate, self.full_name, value)
+        return SQLComparison(SQLOperator.ne(), self.aggregate, self.full_name, value)
 
     def __gt__(self, value):
-        return SQLComparison(
-            SQLOperator.gt(), self.aggregate, self.full_name, value)
+        return SQLComparison(SQLOperator.gt(), self.aggregate, self.full_name, value)
 
     def __ge__(self, value):
-        return SQLComparison(
-            SQLOperator.ge(), self.aggregate, self.full_name, value)
+        return SQLComparison(SQLOperator.ge(), self.aggregate, self.full_name, value)
 
     def like(self, value):
-        return SQLComparison(
-            SQLOperator.like(), self.aggregate, self.full_name, value)
+        return SQLComparison(SQLOperator.like(), self.aggregate, self.full_name, value)
 
     def ilike(self, value):
-        return SQLComparison(
-            SQLOperator.ilike(), self.aggregate, self.full_name, value)
+        return SQLComparison(SQLOperator.ilike(), self.aggregate, self.full_name, value)
 
     def not_like(self, value):
         return SQLComparison(
-            SQLOperator.not_like(), self.aggregate, self.full_name, value)
+            SQLOperator.not_like(), self.aggregate, self.full_name, value
+        )
 
     def not_ilike(self, value):
         return SQLComparison(
-            SQLOperator.not_ilike(), self.aggregate, self.full_name, value)
+            SQLOperator.not_ilike(), self.aggregate, self.full_name, value
+        )
 
     def between(self, minvalue, maxvalue):
         return SQLComparison(
-            SQLOperator.between(), self.aggregate, self.full_name,
-            min_value=minvalue, max_value=maxvalue)
+            SQLOperator.between(),
+            self.aggregate,
+            self.full_name,
+            min_value=minvalue,
+            max_value=maxvalue,
+        )
 
     def in_(self, value):
         if isinstance(value, Column):
             return SQLComparison(
-                SQLOperator.in__(), self.aggregate, self.full_name, value)
-        
-        return SQLComparison(
-            SQLOperator.in_(), self.aggregate, self.full_name, value)
+                SQLOperator.in__(), self.aggregate, self.full_name, value
+            )
+
+        return SQLComparison(SQLOperator.in_(), self.aggregate, self.full_name, value)
 
     @classmethod
     def from_dict(cls, data):
-        name = data.pop('name')
-        data_type = data.pop('data_type')
-        data_type = types.SQLType.from_dict(data_type)
+        name = data.pop("name")
+        data_type = data.pop("data_type")
+        data_type = SQLType.from_dict(data_type)
         return cls(name, data_type=data_type, **data)
 
     def to_sql(self):
@@ -234,47 +261,47 @@ class Column:
                 default = f"'{self.default}'"
             elif isinstance(self.default, bool):
                 default = str(self.default).upper()
-            elif isinstance(self.data_type, types.ArraySQL):
+            elif isinstance(self.data_type, ArraySQL):
                 default = f"{default}::{self.data_type.to_sql()}"
             else:
                 default = f"{self.default}"
             sql.append(f"DEFAULT {default}")
-        
+
         elif self.unique:
-            sql.append('UNIQUE')
+            sql.append("UNIQUE")
 
         if not self.nullable:
-            sql.append('NOT NULL')
-        
+            sql.append("NOT NULL")
+
         if self.foreign_key:
-            fkey_table, fkey_name = self.foreign_key.name.split('.', 1)
+            fkey_table, fkey_name = self.foreign_key.name.split(".", 1)
             sql.append(f"REFERENCES {fkey_table} ({fkey_name})")
 
-        return ' '.join(sql)
+        return " ".join(sql)
 
     @property
     def count(self):
-        self.aggregate = 'COUNT'
+        self.aggregate = "COUNT"
         return self
 
     @property
     def sum(self):
-        self.aggregate = 'SUM'
+        self.aggregate = "SUM"
         return self
 
     @property
     def avg(self):
-        self.aggregate = 'AVG'
+        self.aggregate = "AVG"
         return self
 
     @property
     def min(self):
-        self.aggregate = 'MIN'
+        self.aggregate = "MIN"
         return self
 
     @property
     def max(self):
-        self.aggregate = 'MAX'
+        self.aggregate = "MAX"
         return self
 
     async def set(self, value):
@@ -292,96 +319,106 @@ class Column:
 
 
 class PrimaryKeyColumn(Column):
-    def __init__(self, name=None, auto_increment=False, **kwargs):
+    def __init__(
+        self, name: str, big_int: bool = False, auto_increment: bool = False, **kwargs
+    ):
         super().__init__(
-            name, 
-            data_type=types.Integer(auto_increment=auto_increment),
+            name,
+            data_type=Integer(auto_increment=auto_increment),
             primary_key=True,
-            **kwargs
+            **kwargs,
         )
 
 
 class StringColumn(Column):
     def __init__(self, name=None, **kwargs):
-        super().__init__(name, types.String(), **kwargs)
+        super().__init__(name, String(), **kwargs)
 
 
 class IntColumn(Column):
     def __init__(self, name, big=False, small=False, **kwargs):
-        super().__init__(name, types.Integer(big=big, small=small), **kwargs)
+
+        super().__init__(name, Integer(big=big, small=small), **kwargs)
+
+    @staticmethod
+    def many(*cols: tuple[str, dict]):
+        """Return many IntColuumn's using a list of of arguments"""
+        columns = []
+        for col in cols:
+            list_col = list(col)
+            name = list_col[0]
+            args = list_col[1:] if isinstance(list_col[1:], dict) else {}
+            columns.append(IntColumn(name, **args))
 
 
 class BoolColumn(Column):
     def __init__(self, name, **kwargs):
-        super().__init__(name, types.Boolean(), **kwargs)
+        super().__init__(name, Boolean(), **kwargs)
 
 
 class DatetimeColumn(Column):
     def __init__(self, name, *, timezone=False, **kwargs):
-        super().__init__(name, types.Datetime(timezone=timezone), **kwargs)
+        super().__init__(name, Datetime(timezone=timezone), **kwargs)
 
 
 class DecimalColumn(Column):
     def __init__(self, name, *, precision=None, scale=None, **kwargs):
-        super().__init__(
-            name, types.Decimal(precision=precision, scale=scale), **kwargs)
+        super().__init__(name, Decimal(precision=precision, scale=scale), **kwargs)
 
 
 class IntervalColumn(Column):
     def __init__(self, name, field=False, **kwargs):
-        super().__init__(name, types.Interval(field), **kwargs)
+        super().__init__(name, Interval(field), **kwargs)
 
 
 class ListArguments:
     def __init__(self, args):
         self._args = args
-    
+
     def __len__(self):
         return len(self._args)
 
     def __contains__(self, column):
-        return SQLComparison(
-            SQLOperator.in_(), None, column.full_name, self._args)
+        return SQLComparison(SQLOperator.in_(), None, column.full_name, self._args)
 
 
 class TableAlter:
-    __slots__ = ( 'table', 'upgrade', 'downgrade' )
+    __slots__ = ("table", "upgrade", "downgrade")
 
     def __init__(self, table, upgrade, downgrade):
         self.table = table
         self.upgrade = upgrade
         self.downgrade = downgrade
-    
+
     def to_sql(self, *, downgrade=False):
         stmts = []
         base = f"ALTER TABLE {self.table.full_name}"
         modes = self.upgrade if not downgrade else self.downgrade
 
-        for rename in modes.get('rename_columns', []):
-            stmts.append(f"{base} RENAME COLUMN "\
-                        f"{rename['before']} TO "\
-                        f"{rename['after']};")
-        
+        for rename in modes.get("rename_columns", []):
+            stmts.append(
+                f"{base} RENAME COLUMN " f"{rename['before']} TO " f"{rename['after']};"
+            )
+
         extnd_stmts = []
-        for drop in modes.get('drop_columns', []):
+        for drop in modes.get("drop_columns", []):
             extnd_stmts.append(f"DROP COLUMN {drop['name']} RESTRICT")
-        
-        for alter in modes.get('alter_column_types', []):
-            ext = f"ALTER COLUMN {alter['name']} "\
-                    f"SET DATA TYPE {alter['type']}"
-            
-            using = alter.get('using')
+
+        for alter in modes.get("alter_column_types", []):
+            ext = f"ALTER COLUMN {alter['name']} " f"SET DATA TYPE {alter['type']}"
+
+            using = alter.get("using")
             if using:
                 ext += f" USING {using}"
-            
-            extnd_stmts.append(ext)
-        
-        for constraint in modes.get('alter_constrains', []):
-            before = constraint['before']
-            after = constraint['after']
 
-            b_default = before.get('default')
-            a_default = after.get('default')
+            extnd_stmts.append(ext)
+
+        for constraint in modes.get("alter_constrains", []):
+            before = constraint["before"]
+            after = constraint["after"]
+
+            b_default = before.get("default")
+            a_default = after.get("default")
 
             altr = f"ALTER COLUMN {constraint['name']}"
 
@@ -389,31 +426,33 @@ class TableAlter:
                 extnd_stmts.append(f"{altr} SET DEFAULT {after['default']}")
             elif b_default is not None and a_default is None:
                 extnd_stmts.append(f"{altr} DROP DEFAULT")
-        
-            b_null = before.get('nullable')
-            a_null = after.get('nullable')
+
+            b_null = before.get("nullable")
+            a_null = after.get("nullable")
             if not b_null and a_null:
                 extnd_stmts.append(f"{altr} DROP NOT NULL")
             elif b_null and not a_null:
                 extnd_stmts.append(f"{altr} SET NOT NULL")
-            
-        for add in modes.get('added_columns', []):
+
+        for add in modes.get("added_columns", []):
             column = Column.from_dict(add)
             extnd_stmts.append(f"ADD COLUMN {column.to_sql()}")
-    
+
         if extnd_stmts:
             stmts.append(f"{base} {', '.join(extnd_stmts)};")
 
-        for drop in modes.get('dropped_indexes', []):
+        for drop in modes.get("dropped_indexes", []):
             stmts.append(f"DROP INDEX IF EXISTS {drop['index']}")
 
-        for add in modes.get('added_indexes', []):
-            stmts.append(f"CREATE INDEX IF NO EXISTS {add['index']}"\
-                        f"ON {self.table.full_name} ({add['name']})")
+        for add in modes.get("added_indexes", []):
+            stmts.append(
+                f"CREATE INDEX IF NO EXISTS {add['index']}"
+                f"ON {self.table.full_name} ({add['name']})"
+            )
 
 
 class Schema:
-    __slots__ = ('name', 'db')
+    __slots__ = ("name", "db")
 
     def __init__(self, db, name: str):
         self.db = db
@@ -423,8 +462,8 @@ class Schema:
         return self.name
 
     async def exists(self):
-        schemata_table = self.db.table('information_schema.schemata')
-        query = schemata_table.query('schema_name')
+        schemata_table = self.db.table("information_schema.schemata")
+        query = schemata_table.query("schema_name")
         result = await query.where(schema_name=self.name).get_value()
         return bool(result)
 
@@ -451,7 +490,7 @@ class TableColumns:
     def __init__(self, table):
         self._table = table
         self._db = table.db
-    
+
     def get_column(self, name):
         return Column(name, table=self._table)
 
@@ -459,39 +498,47 @@ class TableColumns:
         return [Column(name, table=self._table) for name in names]
 
     async def info(self, *names):
-        meta_table = Table('information_schema.columns', self._db)
+        meta_table = Table("information_schema.columns", self._db)
         meta_table.query.where(TABLE_NAME=self._table.name)
         if names:
-            meta_table.query.where(meta_table['COLUMN_NAME'].in_(names))
+            meta_table.query.where(meta_table["COLUMN_NAME"].in_(names))
 
         return await meta_table.query.get()
 
     async def get_names(self):
-        meta_table = Table('information_schema.columns', self._db)
-        meta_table.query('column_name')
+        meta_table = Table("information_schema.columns", self._db)
+        meta_table.query("column_name")
         meta_table.query.where(TABLE_NAME=self._table.name)
         return await meta_table.query.get_values()
 
     async def get_primaries(self):
-        kcu = Table('information_schema.key_column_usage', self._db)
-        query = kcu.query('column_name')\
-            .where(
-                table_name=self._table.name,
-                constraint_name=f"{self._table.name}_pkey"
-            )
-        
+        kcu = Table("information_schema.key_column_usage", self._db)
+        query = kcu.query("column_name").where(
+            table_name=self._table.name, constraint_name=f"{self._table.name}_pkey"
+        )
+
         return await query.get_values()
-            
+
 
 class Table:
-    __slots__ = ( 'name', 'db', 'columns', 'where', 'new_columns',
-                  'query', 'insert', 'update', 'initial_data', 'schema' )
+    __slots__ = (
+        "name",
+        "db",
+        "schema",
+        "columns",
+        "new_columns",
+        "query",
+        "insert",
+        "update",
+        "where",
+        "initial_data",
+    )
 
     def __init__(self, name, db, *, schema=None):
-        if '.' in name and not schema:
-            schema, name = name.split('.', 1)
+        if "." in name and not schema:
+            schema, name = name.split(".", 1)
             schema = Schema(db, schema)
-        
+
         self.name = name
         if schema:
             if isinstance(schema, str):
@@ -535,45 +582,51 @@ class Table:
             if not self.new_columns:
                 raise SchemaError("No columns for created table.")
             columns = self.new_columns
-        sql.append(', '.join(col.to_sql for col in columns))
+        sql.append(", ".join(col.to_sql for col in columns))
         if not primaries:
             primaries = [col.name for col in columns if col.primary_key]
 
         if primaries:
             if isinstance(primaries, str):
-                sql.append(f", CONSTRAINT {self.name}_pkey PRIMARY KEY ({primaries})")
+                sql.append(
+                    f", CONSTRAINT {self.name}_pkey " f"PRIMARY KEY ({primaries})"
+                )
 
             elif isinstance(primaries, (list, tuple, set)):
-                sql.append(f", CONSTRAINT {self.name}_pkey"
-                            f" PRIMARY KEY ({', '.join(primaries)})")
+                sql.append(
+                    f", CONSTRAINT {self.name}_pkey"
+                    f" PRIMARY KEY ({', '.join(primaries)})"
+                )
 
         sql.append(")")
-        return ''.join(sql)
+        return "".join(sql)
 
     async def create(self, *columns, primaries=None):
         """Create table and return the object representing it."""
         # if self.schema:
         #     await self.schema.create()
-        
+
         sql = f"CREATE TABLE {self.full_name} IF NOT EXISTS ("
         if not columns:
             if not self.new_columns:
                 raise SchemaError("No columns for created table.")
-            
+
             columns = self.new_columns
-        
-        sql += ', '.join(col.to_sql for col in columns)
+
+        sql += ", ".join(col.to_sql for col in columns)
         if not primaries:
             primaries = [col.name for col in columns if col.primary_key]
-        
+
         if primaries:
             if isinstance(primaries, str):
                 sql += f", CONSTRAINT {self.name}_pkey PRIMARY KEY ({primaries})"
-            
+
             elif isinstance(primaries, (list, tuple, set)):
-                sql += (f", CONSTRAINT {self.name}_pkey"
-                        f" PRIMARY KEY ({', '.join(primaries)})")
-        
+                sql += (
+                    f", CONSTRAINT {self.name}_pkey"
+                    f" PRIMARY KEY ({', '.join(primaries)})"
+                )
+
         sql += ")"
         await self.db.execute_transaction(sql)
         if self.initial_data:
@@ -588,15 +641,15 @@ class Table:
 
     async def drop(self):
         """Drop table from database."""
-        sql = f"DROP TABLE $1"
+        sql = "DROP TABLE $1"
         return await self.db.execute_transaction(sql, (self.full_name,))
 
     async def get_constraints(self):
         """Get column from table."""
-        table = Table('information_schema.table_constraints', self.db)
-        table.query('constrain_name').where(
-            TABLE_NAME=table,
-            CONSTRAINT_TYPE='PRIMARY KEY')
+        table = Table("information_schema.table_constraints", self.db)
+        table.query("constrain_name").where(
+            TABLE_NAME=table, CONSTRAINT_TYPE="PRIMARY KEY"
+        )
         return await table.query.get_values()
 
 
@@ -608,10 +661,9 @@ class SQLConditions:
         self.having_conditions = []
         self._queued_conditions = []
         self.values = []
-        self.add = self.add_having if allow_having \
-            else self.add_conditions
+        self.add = self.add_having if allow_having else self.add_conditions
         self._count_token = 0
-    
+
     def clear(self):
         self.where_conditions = []
         self.having_conditions = []
@@ -621,13 +673,9 @@ class SQLConditions:
     def sort_conditions(self, *conditions, allow_having=True):
         having_list = []
         where_list = []
-        not_comps, comps = partition(
-            lambda c: isinstance(c, SQLComparison), conditions
-        )
-        
-        where, having = partition(
-            lambda c: c.aggregate, comps
-        )
+        not_comps, comps = partition(lambda c: isinstance(c, SQLComparison), conditions)
+
+        where, having = partition(lambda c: c.aggregate, comps)
 
         if not self.allow_having and having:
             raise SchemaError("'HAVING' cannot be in an update statement")
@@ -639,7 +687,7 @@ class SQLConditions:
 
         for c in not_comps:
             where_list.append(self.sort_conditions(*c)[0])
-        
+
         if allow_having:
             return (tuple(where_list), tuple(having_list))
 
@@ -661,6 +709,7 @@ class SQLConditions:
             cond_list = self.having_conditions
         else:
             cond_list = self.where_conditions
+
         def make_string(*conditions):
             condition_strings = []
             for condition in conditions:
@@ -683,6 +732,7 @@ class SQLConditions:
                     self.values.append(condition.maxvalue)
                 condition_strings.append(condition.format(**data))
             return condition_strings
+
         cond_list.extend(make_string(*conditions))
 
     def add_conditions(self):
@@ -691,11 +741,11 @@ class SQLConditions:
                 k_conds = self.process_dict_conditions(kwarg_conditions)
                 k_conds.extend(conditions)
                 conditions = k_conds
-            
+
             where, having = self.sort_conditions(*conditions)
             self.submit_conditions(*where)
             self.submit_conditions(*having, having=True)
-        
+
         return self._parent
 
     def queue_conditions(self, *conditions, **kwargs_conditions):
@@ -716,18 +766,19 @@ class SQLConditions:
 
 class Query:
     """Builds a database query."""
+
     def __init__(self, db, *tables):
         self._db = db
         self._with = []
-        self._select = ['*']
+        self._select = ["*"]
         self._distinct = False
         self._group_by = []
         self._order_by = []
-        self._sort = ''
+        self._sort = ""
         self._from = set()
         if tables:
             self.table(*tables)
-        
+
         self._limit = None
         self._offset = None
         self._inner_join = None
@@ -755,10 +806,10 @@ class Query:
                 self._select.append(str(col))
                 if not self._from and col.table:
                     self._from.add(col.table)
-            
+
             elif isinstance(col, str):
                 self._select.append(col)
-            
+
         return self
 
     __call__ = select
@@ -776,9 +827,8 @@ class Query:
                 self._from.add(Table(table, self._db))
             else:
                 type_given = type(table).__name__
-                raise SyntaxError(
-                    f"Unexpected data type encountered: {type_given}")
-        
+                raise SyntaxError(f"Unexpected data type encountered: {type_given}")
+
         return self
 
     def group_by(self, *columns):
@@ -791,11 +841,11 @@ class Query:
 
     def order_by(self, *columns, asc: bool = None):
         if asc is False:
-            sort = ' DESC'
+            sort = " DESC"
         if asc is True:
-            sort = ' ASC'
+            sort = " ASC"
         if asc is None:
-            sort = ''
+            sort = ""
         for col in columns:
             if isinstance(col, Column):
                 self._order_by.append(f"{col.full_name}{sort}")
@@ -818,14 +868,14 @@ class Query:
     def inner_join(self, table_name, key):
         if not isinstance(key, str):
             raise TypeError("Method 'using' only accepts a string argument.")
-        
+
         self._inner_join = [table_name, key]
         return self
-    
+
     def left_join(self, table_name, key):
         if not isinstance(key, str):
             raise TypeError("Method 'using' only accepts a string argument.")
-        
+
         self._left_join = [table_name, key]
         return self
 
@@ -833,8 +883,10 @@ class Query:
         sql = []
         if self._with:
             sql.append("WITH")
-            sql.append(", ".join(f"{name} AS ({statement})" for name, statement in self._with))
-        
+            sql.append(
+                ", ".join(f"{name} AS ({statement})" for name, statement in self._with)
+            )
+
         if delete:
             sql.append("DELETE")
         else:
@@ -844,17 +896,23 @@ class Query:
             else:
                 select_names = [str(c) for c in self._select]
                 sql.append(f"{select_str} {', '.join(select_names)}")
+
         table_names = [t.full_name for t in self._from]
         sql.append(f"FROM {', '.join(table_names)}")
+
         if self._left_join:
-            sql.append(f"LEFT JOIN {self._left_join[0]} USING ({self._left_join[1]}) ")
+            sql.append(
+                (f"LEFT JOIN {self._left_join[0]} " f"USING ({self._left_join[1]}) ")
+            )
 
         elif self._inner_join:
-            sql.append(f"INNER JOIN {self._inner_join[0]} USING ({self._inner_join[1]}) ")
+            sql.append(
+                (f"INNER JOIN {self._inner_join[0]} " f"USING ({self._inner_join[1]}) ")
+            )
 
         if self.conditions._queued_conditions:
             self.conditions.add_conditions()
-        
+
         if self.conditions.where_conditions:
             con_sql = self.conditions.where_conditions
             sql.append(f"WHERE {' AND '.join(con_sql)}")
@@ -869,10 +927,10 @@ class Query:
             sql.append(f"LIMIT {self._limit}")
         if self._offset:
             sql.append(f"OFFSET {self._offset}")
-        
+
         if not raw:
             return (f"{' '.join(sql)};", self.conditions.values)
-        
+
         return f"{' '.join(sql)}"
 
     async def delete(self, **conditions):
@@ -891,7 +949,7 @@ class Query:
         data = await self.get()
         self.limit()
         if len(data) > 1:
-            raise ResponseError('More than one result returned.')
+            raise ResponseError("More than one result returned.")
         if not data:
             return None
         return data[0]
@@ -908,7 +966,7 @@ class Query:
     async def get_value(self, *cols_selected):
         if cols_selected:
             self.select(*cols_selected)
-        if len(self._select) == 1 or self._select == '*':
+        if len(self._select) == 1 or self._select == "*":
             data = await self.get_first()
             if not data:
                 return None
@@ -917,7 +975,7 @@ class Query:
             raise QueryError("Query doesn't have a single column selected.")
 
     async def get_values(self):
-        if len(self._select) == 1 or self._select == '*':
+        if len(self._select) == 1 or self._select == "*":
             data = await self.get()
             return [next(row.values()) for row in data]
         else:
@@ -944,8 +1002,7 @@ class Insert:
             self._from = Table(table, self._db)
         else:
             type_given = type(table).__name__
-            raise SyntaxError(
-                f"Unexpected data type encountered: {type_given}.")
+            raise SyntaxError(f"Unexpected data type encountered: {type_given}.")
 
         return self
 
@@ -984,18 +1041,18 @@ class Insert:
             data.append(entry_values)
 
         # build the insert statement
-        col_str, idx_str = (', '.join(cols), ', '.join(col_idx))
+        col_str, idx_str = (", ".join(cols), ", ".join(col_idx))
         sql = f"INSERT INTO {self._from} ({col_str}) VALUES ({idx_str})"
 
         # handle conflict if required
         if do_update:
-            const_str = ', '.join(self._primaries)
+            const_str = ", ".join(self._primaries)
             sql += f" ON CONFLICT ({const_str}) DO UPDATE SET "
-            excluded = [f'{c} = excluded.{c}' for c in cols]
-            sql += ', '.join(excluded)
+            excluded = [f"{c} = excluded.{c}" for c in cols]
+            sql += ", ".join(excluded)
 
         if do_update is False:
-            const_str = ', '.join(self._primaries)
+            const_str = ", ".join(self._primaries)
             sql += f" ON CONFLICT ({const_str}) DO NOTHING"
 
         # add the returning statement if specified
@@ -1007,7 +1064,7 @@ class Insert:
     def sql_test(self, do_update=None):
         """SQL test output"""
         sql, data = self.sql(do_update)
-        data_str = ',\n'.join(str(d) for d in data)
+        data_str = ",\n".join(str(d) for d in data)
         msg = f"**SQL**```sql\n{sql}\n```\n**Data**```py\n{data_str}\n```"
         return msg
 
@@ -1024,9 +1081,9 @@ class Insert:
             duplicate is encountered.
         """
         if not self._from:
-            raise SchemaError('A table must be declared.')
+            raise SchemaError("A table must be declared.")
 
-        if not do_update is None and not self._primaries:
+        if do_update is not None and not self._primaries:
             self._primaries = await self._from.columns.get_primaries()
 
         sql, data = self.sql(do_update)
@@ -1038,8 +1095,7 @@ class Insert:
             return self._columns
 
         if self._data:
-            raise SchemaError(
-                'Columns must be declared before data has been added.')
+            raise SchemaError("Columns must be declared before data has been added.")
 
         self._columns = columns
         return self
@@ -1060,22 +1116,24 @@ class Insert:
 
         if values and dict_values:
             raise SyntaxError(
-                'Unable to mix positional args and kwargs when adding row '
-                'data. Use only positional args if columns are set or all '
-                'columns will be specified. Use only kwargs if adding row '
-                'data to specify relevant columns.')
+                "Unable to mix positional args and kwargs when adding row "
+                "data. Use only positional args if columns are set or all "
+                "columns will be specified. Use only kwargs if adding row "
+                "data to specify relevant columns."
+            )
 
         if values and not self._columns:
             raise SyntaxError(
-                'Columns must be declared before being able to use '
-                'positional args for this method.')
+                "Columns must be declared before being able to use "
+                "positional args for this method."
+            )
 
         if values:
             dict_values = dict(zip_longest(self._columns, values))
             if None in dict_values:
                 raise SyntaxError(
-                    'Too many values given '
-                    f'({len(values)}/{len(self._columns)})')
+                    "Too many values given " f"({len(values)}/{len(self._columns)})"
+                )
 
         if dict_values:
             self._data.append(dict_values)
@@ -1084,10 +1142,11 @@ class Insert:
 
     def rows(self, data_iterable):
         """Add row data in bulk to insert."""
-        if not hasattr(data_iterable, '__iter__'):
+        if not hasattr(data_iterable, "__iter__"):
             raise SyntaxError(
-                'Non-iterable encountered in rows method. Can only accept '
-                'an iterable of data for adding row data in bulk.')
+                "Non-iterable encountered in rows method. Can only accept "
+                "an iterable of data for adding row data in bulk."
+            )
 
         for row in data_iterable:
             if isinstance(row, dict):
@@ -1100,9 +1159,10 @@ class Insert:
     def __call__(self, *args, **kwargs):
         if args and kwargs:
             raise SyntaxError(
-                'Unable to mix positional args and kwargs in base call '
-                'for Insert. Use only positional args if setting the columns '
-                'or use kwargs if adding a row as a shortcut.')
+                "Unable to mix positional args and kwargs in base call "
+                "for Insert. Use only positional args if setting the columns "
+                "or use kwargs if adding a row as a shortcut."
+            )
 
         if args:
             self.set_columns(*args)
@@ -1133,8 +1193,7 @@ class Update:
             self._from = Table(table, self._db)
         else:
             type_given = type(table).__name__
-            raise SyntaxError(
-                f"Unexpected data type encountered: {type_given}.")
+            raise SyntaxError(f"Unexpected data type encountered: {type_given}.")
 
         return self
 
@@ -1168,7 +1227,8 @@ class Update:
             if not allow_no_condition:
                 raise SchemaError(
                     "No condition provided for Update. If this is "
-                    "intentional, use the 'allow_no_condition' kwarg.")
+                    "intentional, use the 'allow_no_condition' kwarg."
+                )
 
             else:
                 cond_values = []
@@ -1180,7 +1240,7 @@ class Update:
             data.append(entry_values)
 
         # build the insert statement
-        col_str, idx_str = (', '.join(cols), ', '.join(col_idx))
+        col_str, idx_str = (", ".join(cols), ", ".join(col_idx))
         if len(cols) > 1:
             sql = [f"UPDATE {self._from} SET ({col_str}) = ({idx_str})"]
         else:
@@ -1194,12 +1254,12 @@ class Update:
         if self._returning:
             sql.append(f"RETURNING {', '.join(self._returning)}")
 
-        return (' '.join(sql), tuple(data))
+        return (" ".join(sql), tuple(data))
 
     def sql_test(self, allow_no_condition=False):
         """SQL test output"""
         sql, data = self.sql(allow_no_condition)
-        data_str = '\n'.join(str(d) for d in data)
+        data_str = "\n".join(str(d) for d in data)
         msg = f" ```\n**SQL**```sql\n{sql}\n```\n**Data**```py\n{data_str}\n"
         return msg
 
@@ -1212,8 +1272,7 @@ class Update:
         if not columns:
             return self._columns
         if self._data:
-            raise SchemaError(
-                'Columns must be declared before values are defined.')
+            raise SchemaError("Columns must be declared before values are defined.")
 
         self._columns = columns
         return self
@@ -1227,22 +1286,24 @@ class Update:
 
         if values and dict_values:
             raise SyntaxError(
-                'Unable to mix positional args and kwargs when adding row '
-                'data. Use only positional args if columns are set or all '
-                'columns will be specified. Use only kwargs if adding row '
-                'data to specify relevant columns.')
+                "Unable to mix positional args and kwargs when adding row "
+                "data. Use only positional args if columns are set or all "
+                "columns will be specified. Use only kwargs if adding row "
+                "data to specify relevant columns."
+            )
 
         if values and not self._columns:
             raise SyntaxError(
-                'Columns must be declared before being able to use '
-                'positional args for this method.')
+                "Columns must be declared before being able to use "
+                "positional args for this method."
+            )
 
         if values:
             dict_values = dict(zip_longest(self._columns, values))
             if None in dict_values:
                 raise SyntaxError(
-                    'Too many values given '
-                    f'({len(values)}/{len(self._columns)})')
+                    "Too many values given " f"({len(values)}/{len(self._columns)})"
+                )
 
         if dict_values:
             self._data.append(dict_values)
@@ -1252,9 +1313,10 @@ class Update:
     def __call__(self, *args, **kwargs):
         if args and kwargs:
             raise SyntaxError(
-                'Unable to mix positional args and kwargs in base call '
-                'for Update. Use only positional args if setting the columns '
-                'or use kwargs if adding a row as a shortcut.')
+                "Unable to mix positional args and kwargs in base call "
+                "for Update. Use only positional args if setting the columns "
+                "or use kwargs if adding a row as a shortcut."
+            )
 
         if args:
             self.columns(*args)

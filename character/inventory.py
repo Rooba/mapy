@@ -2,10 +2,10 @@ from typing import Union
 
 from common import abc
 from common.enum import InventoryType
-from . import item as Item
+from game import item as Item
 
 
-class InventoryManager(abc.Serializable):
+class InventoryManager:
     def __init__(self):
         self.tracker = Tracker()
         self.inventories = {}
@@ -16,11 +16,9 @@ class InventoryManager(abc.Serializable):
     def __iter__(self):
         return ((item[0], item[1].items) for item in self.inventories.items())
 
-    def __serialize__(self):
-        return self.tracker.__serialize__()
-
-    def get_update(self):
-        return self.tracker.get_update()
+    @property
+    def updates(self):
+        return self.tracker.inventory_changes
 
     def get(self, inventory_type):
         
@@ -42,42 +40,24 @@ class InventoryManager(abc.Serializable):
             self.tracker.insert(item, slot)
 
 
-class Tracker(abc.Serializable):
+class Tracker:
     def __init__(self):
-        self.type = InventoryType.tracker
+        self.type = InventoryType.TRACKER
         self._starting = []
 
         # Only update this on stat improvement, 
         # movement, or new item added
         self._items = {i: {} for i in range(1, 6)}
 
-    def __serialize__(self):
-        tracker = {
-            'insert_update': {}
-        }
-
-        # Update on item removal or do on logout?
-        tracker['throwaway'] = self.get_throwaway()
-
-        for _, inventory in self._items.items():
-            for index, item in inventory.items():
-                tracker['insert_update'][index] = item.__dict__
-
-        return tracker
-
     def insert(self, item, slot):
         self._items[int(item.item_id / 1000000)][slot] = item
 
-    def get_update(self):
-        items = []
-        for inv_type, inventory in self._items.items():
-            for index, item in inventory.items():
-                item_ = {**item.__dict__}
-                item_['inventory_type'] = inv_type
-                item_['position'] = index
-                items.append(item_)
-        
-        return items
+    @property
+    def inventory_changes(self):
+        return [{**item.__dict__, 'inventory_type': inv_type, 'position': slot} for inv_type, inventory in self._items.items() for slot, item in inventory.items()]
+
+    # def get_update(self):
+    #     return [{**item.__dict__, 'inventory_type': inv_type, 'position': slot} for inv_type, inventory in self._items.items() for slot, item in inventory.items()]
 
     def get_throwaway(self):
         throwaway = []

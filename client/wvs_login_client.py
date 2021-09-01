@@ -22,8 +22,9 @@ class WvsLoginClient(ClientBase):
         self.avatars = []
 
     async def login(self, username, password):
-        response, account = await self.data.\
-            account(username=username, password=password).login()
+        response, account = await self.data\
+            .account(username=username, password=password)\
+                .login()
 
         if not response:
             self.account = account
@@ -35,7 +36,7 @@ class WvsLoginClient(ClientBase):
     async def load_avatars(self, world_id=None):
         self.avatars = await self.data\
             .account(id=self.account.id)\
-                .get_characters(world_id=world_id)
+                .get_entries(world_id=world_id)
 
     @property
     def account_id(self):

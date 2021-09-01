@@ -1,8 +1,7 @@
 from .account import Account
 from .character import Character
+from .character_entry import CharacterEntry
+from .modifiers import CharacterModifiers
 from .character_stats import CharacterStats
-from .item import ItemSlotEquip
-from .foothold import Foothold
-from .func_key import FuncKey
-from .portal import Portal
+from .func_key import FuncKey, FuncKeys
 from .skill_entry import SkillEntry

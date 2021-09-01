@@ -5,7 +5,7 @@ import importlib
 from utils import log
 
 class HTTPServer(web.Application):
-    def __init__(self, server, loop, port=54545, route_path="web_api/routes/"):
+    def __init__(self, server, loop, port=54545, route_path="http_api/routes/"):
         super().__init__(loop=loop)
 
         self._server = server
@@ -14,7 +14,7 @@ class HTTPServer(web.Application):
         self._route_path = route_path
 
         self.load_routes()
-    
+
     def load_routes(self):
         for path, _, files in walk(self._route_path):
             for file_ in files:
@@ -23,7 +23,7 @@ class HTTPServer(web.Application):
                     if not getattr(lib, 'setup'):
                         log.warn(f"{file_} does not contain a setup method")
                         continue
-                    
+
                     self._routes += lib.setup(self)
 
         self.router.add_routes(self._routes)
@@ -31,7 +31,7 @@ class HTTPServer(web.Application):
     def run(self):
         runner = web.AppRunner(self)
         self.loop.run_until_complete(runner.setup())
-        site = web.TCPSite(runner, port=self._port)    
+        site = web.TCPSite(runner, port=self._port)
         self.loop.run_until_complete(site.start())
 
     @property

@@ -97,14 +97,14 @@ class CPacket:
         return packet
 
     @staticmethod
-    def world_result(characters):
+    def world_result(entries):
         packet = packets.Packet(op_code=CSendOps.LP_SelectWorldResult)
 
         packet.encode_byte(0)
-        packet.encode_byte(len(characters))
+        packet.encode_byte(len(entries))
 
-        for character in characters:
-            CPacket.add_character_result(packet, character)
+        for entry in entries:
+            entry.encode(packet)
 
         packet.encode_byte(2)
         packet.encode_int(3)
@@ -118,14 +118,6 @@ class CPacket:
         packet.encode_string(name)
         packet.encode_byte(is_available)
         return packet
-
-    @staticmethod
-    def add_character_result(packet, character):
-        character.stats.encode(packet)
-        character.encode_look(packet)
-
-        packet.encode_byte(False)  # VAC
-        packet.encode_byte(False)  # Ranking
 
     @staticmethod
     def extra_char_info(character):
@@ -171,7 +163,7 @@ class CPacket:
         packet.encode_byte(response)
 
         if not response:
-            CPacket.add_character_result(packet, character)
+            character.encode_entry(packet)
 
         return packet
 
@@ -234,7 +226,7 @@ class CPacket:
         packet.encode_byte(0)
 
         for i in range(90):
-            key = get(keys, key=i)
+            key = keys[i]
             packet.encode_byte(getattr(key, 'type', 0))
             packet.encode_int(getattr(key, 'action', 0))
         
@@ -245,6 +237,23 @@ class CPacket:
         packet = packets.Packet(op_code=CSendOps.LP_SetGender)
         packet.encode_byte(gender)
         return packet
+
+    @staticmethod
+    def stat_changed(modifier=None, excl_req=False):
+        packet = packets.Packet(op_code=CSendOps.LP_StatChanged)
+        packet.encode_byte(excl_req)
+        if modifier:
+            modifier.encode(packet)
+        else:
+            packet.encode_int(4)
+        packet.encode_byte(0)
+        packet.encode_byte(0)
+
+        return packet
+
+    @staticmethod
+    def enable_actions():
+        return CPacket.stat_changed(excl_req=True)
 
     @staticmethod
     def claim_svr_changed(claim_svr_con: bool):

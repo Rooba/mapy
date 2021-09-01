@@ -27,3 +27,6 @@ class ObjectPool:
 
     def __iter__(self):
         return (obj for obj in self.cache.values())
+
+    def __aiter__(self):
+        return self.__iter__()

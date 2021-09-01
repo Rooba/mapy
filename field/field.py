@@ -2,19 +2,25 @@ from .foothold_manager import FootholdManager
 from .portal_manager import PortalManager
 from .mob_pool import MobPool
 from .npc_pool import NpcPool
+from .user_pool import UserPool
 
 from utils import CPacket, get
 
 class Field:
     def __init__(self, map_id):
         self.map_id = map_id
-        self.characters = []
-        self.sockets = {}
+        # self.characters = []
+        # self.sockets = {}
 
         self.portals = PortalManager()
         self.footholds = FootholdManager()
+        self.clients = UserPool(self)
         self.mobs = MobPool(map_id)
         self.npcs = NpcPool(map_id)
+
+    @property
+    def id(self):
+        return self.map_id
 
     async def add(self, client):
         character = client.character
@@ -28,22 +34,21 @@ class Field:
 
             await client.send_packet(CPacket.set_field(character, True, client.channel_id))
         
-        for char in self.characters:
-            await client.send_packet(CPacket.user_enter_field(char))
+        for _character in self.clients.characters:
+            await client.send_packet(CPacket.user_enter_field(_character))
         
         await self.spawn_mobs(client)
         await self.spawn_npcs(client)
 
-        self.characters.append(client.character)
-        self.sockets[client.character] = client
+        self.clients.add(client)
 
         await self.broadcast(CPacket.user_enter_field(character))
         
     async def broadcast(self, packet, *ignore):
-        for _, client in self.sockets.items():
-            if client in ignore:
+        for client in self.clients:
+            if client in ignore or client.character in ignore:
                 continue
-            
+        
             await client.send_packet(packet)
 
     async def swap_mob_controller(self, client, mob):

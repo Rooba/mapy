@@ -1,9 +1,10 @@
+from .server_base import ServerBase
+
 from client import WvsGameClient
 from common.enum import Worlds
-from net.packets.opcodes import CRecvOps
-from net.packets import crypto, Packet
+from common.constants import ANTIREPEAT_BUFFS, is_event_vehicle_skill
+from net.packets import crypto, Packet, CRecvOps
 from net.packets.packet import packet_handler
-from .server_base import ServerBase
 from scripts.npc import NpcScript
 from utils import CPacket, log
 
@@ -26,11 +27,11 @@ class WvsGame(ServerBase):
 
     @classmethod
     async def run(cls, parent, port, world_id, channel_id):
-        login = WvsGame(parent, port, world_id, channel_id)
+        game = WvsGame(parent, port, world_id, channel_id)
 
-        await login.start()
+        await game.start()
 
-        return login
+        return game
 
     async def client_connect(self, client):
         game_client = WvsGameClient(self, client)
@@ -38,9 +39,15 @@ class WvsGame(ServerBase):
 
         return game_client
     
-    def on_client_disconnect(self, client):
+    async def on_client_disconnect(self, client):
+        field = await client.get_field()
+        field.clients.remove(client)
+        # field.sockets.pop(client.character)
+
+        await field.broadcast(CPacket.user_leave_field(client.character))
+
         self._parent._clients.remove(client)
-        super().on_client_disconnect(client)
+        await super().on_client_disconnect(client)
 
     async def get_field(self, field_id):
         field = self.field_manager.get(field_id, None)
@@ -55,26 +62,28 @@ class WvsGame(ServerBase):
 
     @packet_handler(CRecvOps.CP_MigrateIn)
     async def handle_migrate_in(self, client, packet):
-        character_id = packet.decode_int()
-        machine_id = packet.decode_buffer(16)
-        is_gm = packet.decode_byte()
-        packet.decode_byte()
-        session_id = packet.decode_long()
+        uid = packet.decode_int()
 
-        for x in self.parent.logged_in:
-            if x.character.id == character_id:
-                req = x
+        packet.decode_buffer(16) # Machine ID
+        packet.decode_byte() # is gm
+        packet.decode_byte()
+        packet.decode_long() # Session ID
+
+        for x in self.parent.pending_logins:
+            if x.character.id == uid:
+                login_req = x
                 break
         
         else:
-            req = None
+            login_req = None
 
-        if not req:
+        if not login_req:
             await client.disconnect()
         
-        req.migrated = True
+        login_req.migrated = True
 
-        client.character = req.character
+        login_req.character._client = client
+        client.character = await self.data.characters.load(uid, client)
         field = await self.get_field(client.character.field_id)
 
         await field.add(client)
@@ -85,29 +94,57 @@ class WvsGame(ServerBase):
 
     @packet_handler(CRecvOps.CP_UserMove)
     async def handle_user_move(self, client, packet):
-        v1 = packet.decode_long()
-        portal_count = packet.decode_byte()
-        v2 = packet.decode_long()
-        map_crc = packet.decode_int()
-        key = packet.decode_int()
-        key_crc = packet.decode_int()
+        packet.decode_long() # v1
+        packet.decode_byte() # portal count
+        packet.decode_long() # v2
+        packet.decode_int() # map crc
+        packet.decode_int() # key
+        packet.decode_int() # key crc
 
         move_path = packet.decode_buffer(-1)
         client.character.position.decode_move_path(move_path)    
-        field = await client.get_field()
-        await field.broadcast(CPacket.user_movement(client.character.id, move_path), client)
+        await client.broadcast(CPacket.user_movement(client.character.id, move_path))
     
+    @packet_handler(CRecvOps.CP_UserSkillUseRequest)
+    async def handle_skill_use_request(self, client, packet):
+        packet.decode_int() # tick count
+        skill_id = packet.decode_int()
+        _ = packet.decode_byte()
+
+        if skill_id in ANTIREPEAT_BUFFS:
+            packet.decode_short() # x
+            packet.decode_short() # y
+
+        if skill_id == 4131006:
+            packet.decode_int()
+
+        if is_event_vehicle_skill(skill_id):
+            packet.skip(1)
+            if skill_id == 2311001:
+                packet.skip(2)
+        
+        packet.decode_short()
+
+        casted = False
+        if skill_id:
+            casted = await client.character.skills.cast(skill_id)
+        
+        await client.send_packet(CPacket.enable_actions())
+
+        if casted:
+            client.broadcast(CPacket.effect_remote(client.character.obj_id, 1, skill_id, client.character.stats.level, 1))
+
+
     @packet_handler(CRecvOps.CP_UserSelectNpc)
     async def handle_user_select_npc(self, client, packet):
         obj_id = packet.decode_int()
-        x = packet.decode_short()
-        y = packet.decode_short()
+        packet.decode_short() # x
+        packet.decode_short() # y
 
         if client.npc_script:
             pass # client has npc script already?
         
-        field = await client.get_field()
-        npc = field.npcs.get(obj_id)
+        npc = client.character.field.npcs.get(obj_id)
 
         if npc:
             client.npc_script = NpcScript.get_script(npc.id, client)
@@ -142,4 +179,5 @@ class WvsGame(ServerBase):
     @packet_handler(CRecvOps.CP_RequireFieldObstacleStatus)
     async def handle_require_field_obstacle(self, client, packets):
         pass
+
 

@@ -3,10 +3,10 @@ import asyncio
 from datetime import datetime
 
 from client import WvsLoginClient
-from client.entities import Account, Character
-from client.entities.inventory import InventoryType
+from character import Account, Character
+from character.inventory import InventoryType
 from common.constants import (
-    AUTO_LOGIN, AUTO_REGISDTER, CENTER_PORT, HOST_IP, LOGIN_PORT,
+    AUTO_LOGIN, AUTO_REGISTER, CENTER_PORT, HOST_IP, LOGIN_PORT,
     MAX_CHARACTERS, REQUEST_PIC, REQUEST_PIN, REQUIRE_STAFF_IP, WORLD_COUNT,
     get_job_from_creation)
 from common.types import PendingLogin
@@ -24,7 +24,7 @@ class WvsLogin(ServerBase):
         super().__init__(parent, LOGIN_PORT, 'LoginServer')
         
         self._worlds = []
-        self._auto_register = AUTO_REGISDTER
+        self._auto_register = AUTO_REGISTER
         self._request_pin = REQUEST_PIN
         self._request_pic = REQUEST_PIC
         self._require_staff_ip = REQUIRE_STAFF_IP
@@ -168,7 +168,7 @@ class WvsLogin(ServerBase):
         character = next((c for c in client.avatars if c.id == uid), None)
         port = self.parent.worlds[client.world_id][client.channel_id].port
 
-        self.parent.logged_in.append(
+        self.parent.pending_logins.append(
             PendingLogin(character, client.account, datetime.now()))
 
         await client.send_packet(

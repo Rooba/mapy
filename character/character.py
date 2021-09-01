@@ -1,18 +1,24 @@
 from common import abc
-from utils import filter_out_to, Random, MapPos
+from utils import filter_out_to, Random
 
-from . import item as Item
+from .modifiers import CharacterModifiers
 from .character_stats import CharacterStats
+from .func_key import FuncKeys
 from .inventory import InventoryManager, InventoryType
+from field import FieldObject
+from game import item as Item
 
 
-class Character(abc.Serializable):
-    def __init__(self, **data):
-        self.stats = CharacterStats(**data)
-        self.position = MapPos()
+class Character(FieldObject):
+    def __init__(self, stats):
+        super().__init__()
+        self._client = None
+        self._data = None
 
+        self.stats = CharacterStats(**stats)
         self.inventories = InventoryManager()
-        self.func_keys = []
+        self.func_keys = FuncKeys(self)
+        self.modify = CharacterModifiers(self)
         self.skills = {}
         self.random = Random()
 
@@ -27,6 +33,22 @@ class Character(abc.Serializable):
     @property
     def field_id(self):
         return self.stats.field_id
+
+    @property
+    def client(self):
+        return self._client
+
+    @client.setter
+    def client(self, value):
+        self._client = value
+
+    @property
+    def data(self):
+        return self._data
+    
+    @data.setter
+    def data(self, value):
+        self._data = value
 
     @property
     def equip_inventory(self):
@@ -47,6 +69,17 @@ class Character(abc.Serializable):
     @property
     def cash_inventory(self):
         return self.inventories.get(5)
+
+    def encode_entry(self, packet):
+        ranking = False
+        
+        self.stats.encode(packet)
+        self.encode_look(packet)
+        packet.encode_byte(0)
+        packet.encode_byte(0)
+
+        if ranking:
+            packet.skip(16)
 
     def encode(self, packet):
         packet.encode_long(-1 & 0xFFFFFFFF)
@@ -144,10 +177,10 @@ class Character(abc.Serializable):
 
     # Maybe needs to not be filled by default
     def encode_teleports(self, packet):
-        for i in range(5):
+        for _ in range(5):
             packet.encode_int(0)
         
-        for i in range(10):
+        for _ in range(10):
             packet.encode_int(0)
 
     def encode_monster_book(self, packet):
@@ -169,7 +202,7 @@ class Character(abc.Serializable):
         packet.encode_byte(0)
         packet.encode_int(self.stats.hair)
 
-        inventory = self.inventories.get(InventoryType.equip)
+        inventory = self.inventories.get(InventoryType.EQUIP)
         equipped = {}
 
         for index, item in inventory:
@@ -198,3 +231,6 @@ class Character(abc.Serializable):
         # for pet_id in self.pet_ids:
         for pet_id in range(3):
             packet.encode_int(pet_id)
+
+    async def send_packet(self, packet):
+        await self._client.send_packet(packet)

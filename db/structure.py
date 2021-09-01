@@ -10,6 +10,7 @@ class Schema(Meta):
         value.schema = cls.__name__.lower()
         value.primary_key = value.__dict__.get('__primary_key__')
         value.foreign_keys = value.__dict__.get('__foreign_keys__')
+        value.columns = [item.lower() for item in value._member_names_]
         return value
 
     def __str__(self):
@@ -75,7 +76,6 @@ class Table(int, Meta):
         #     enum_class.data_type = types.ArraySQL(enum_class.data_type)
 
         enum_class.options = options if options else {}
-
         return enum_class
 
 

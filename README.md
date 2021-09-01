@@ -1,9 +1,11 @@
 # MaPy
-MapleStory Python Emulator
 
-### Requirements
+Maplestory emulator written in Python
+
+## Requirements
+
 - Python 3.6+
 - asyncpg
 - pycryptodome
 
-Styled after rebrith and destiny, for learning purposes
+Thank you to raj for basically teaching me all of this

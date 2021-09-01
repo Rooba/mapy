@@ -10,13 +10,12 @@ from db import DatabaseClient
 # Not using for now, perhaps allow for api calls to this
 # from external services?
 
-# from web_api import HTTPClient
+# from http_api import HTTPClient
 
 from utils.tools import wakeup
 from net.packets.packet import packet_handler, Packet
 from utils import log, logger
-from web_api import HTTPServer
-from client import WvsCenterClient
+from http_api import HTTPServer
 from common.enum import Worlds
 from common.constants import (GAME_PORT, USE_DATABASE,
     USE_HTTP_API, WORLD_COUNT, CHANNEL_COUNT)
@@ -45,8 +44,8 @@ class ServerApp:
         self._loop = get_event_loop()
         self._clients = []
         self._http_api = HTTPServer(self, self._loop)
-        
-        self.logged_in = []
+
+        self.pending_logins = []
 
         self.login = None
         self.shop = None
@@ -144,7 +143,7 @@ class ServerApp:
         channel_port = GAME_PORT
         self.login = await WvsLogin.run(self)
 
-        
+
         for world in self._config['worlds']:
             if self._config['worlds'][world] != 'active':
                 continue

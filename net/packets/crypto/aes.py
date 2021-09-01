@@ -1,5 +1,6 @@
-from Cryptodome.Cipher import AES
-from struct import unpack, pack
+from Crypto.Cipher import AES
+# from struct import unpack, pack
+
 
 class MapleAes:
     _user_key = bytearray([
@@ -31,7 +32,7 @@ class MapleAes:
         while remaining > 0:
             for index in range(len(real_iv)):
                 real_iv[index] = iv_bytes[index % 4]
-            
+
             if remaining < length:
                 length = remaining
 
@@ -41,11 +42,13 @@ class MapleAes:
                 sub = index - start
 
                 if (sub % 16) == 0:
-                    real_iv = AES.new(cls._user_key, AES.MODE_ECB).encrypt(real_iv)
+                    real_iv = (
+                        AES.new(cls._user_key, AES.MODE_ECB).encrypt(real_iv)
+                    )
 
                 buffer[index] ^= real_iv[sub % 16]
                 index += 1
-            
+
             start += length
             remaining -= length
             length = 0x5B4
@@ -53,7 +56,7 @@ class MapleAes:
         iv.shuffle()
 
         return buffer
-    
+
     # @staticmethod
     # def get_header(data, iv, length, major_ver):
     #     first = -(major_ver + 1) ^ iv.hiword
@@ -71,7 +74,7 @@ class MapleAes:
         second = (first + 2**16) ^ length
         data[0:2] = bytes([first & 0xFF, first >> 8 & 0xFF])
         data[2:4] = bytes([second & 0xFF, second >> 8 & 0xFF])
-    
+
     @staticmethod
     def get_length(data):
         return ((data[1] << 8) + data[0]) ^ ((data[3] << 8) + data[2])

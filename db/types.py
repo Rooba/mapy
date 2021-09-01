@@ -7,7 +7,7 @@ from .errors import SchemaError
 
 
 class SQLType:
-    python = None
+    python = type(None)
 
     def to_dict(self):
         dct = self.__dict__.copy()
@@ -24,7 +24,7 @@ class SQLType:
             cls = pydoc.locate(meta)
             if cls is None:
                 raise RuntimeError(f'Could not locate "{meta}".')
-        
+
         self = cls.__new__(cls)
         self.__dict__.update(data)
         return self
@@ -84,10 +84,10 @@ class Integer(SQLType):
         self.big = big
         self.small = small
         self.auto_increment = auto_increment
-    
+
         if big and small:
             raise SchemaError('Integer cannot be both big and small')
-    
+
     def to_sql(self):
         if self.auto_increment:
             if self.big:
@@ -108,19 +108,27 @@ class Integer(SQLType):
 
 class Interval(SQLType):
     python = datetime.timedelta
-    valid_fields = (
-        'YEAR', 'MONTH', 'DAY', 'HOUR', 'MINUTE', 'SECOND', 'YEAR TO MONTH',
-        'DAY TO HOUR', 'DAY TO MINUTE', 'DAY TO SECOND', 'HOUR TO MINUTE',
-        'HOUR TO SECOND', 'MINUTE TO SECOND')
+    valid_fields = ('YEAR',
+                    'MONTH',
+                    'DAY',
+                    'HOUR',
+                    'MINUTE',
+                    'SECOND',
+                    'YEAR TO MONTH',
+                    'DAY TO HOUR',
+                    'DAY TO MINUTE',
+                    'DAY TO SECOND',
+                    'HOUR TO MINUTE',
+                    'HOUR TO SECOND',
+                    'MINUTE TO SECOND')
 
     def __init__(self, field=None):
         if field:
             field = field.upper()
             if field not in self.valid_fields:
                 raise SchemaError('invalid interval specified')
-            self.field = field
-        else:
-            self.field = None
+
+        self.field = field
 
     def to_sql(self):
         if self.field:
@@ -144,7 +152,7 @@ class Decimal(SQLType):
 
     def to_sql(self):
         if self.precision is not None:
-            return f'NUMERIC({self.precision}, {self.scale})'
+            return f"NUMERIC({self.precision}, {self.scale})"
         return 'NUMERIC'
 
 
@@ -154,7 +162,8 @@ class Numeric(SQLType):
     def __init__(self, *, precision=None, scale=None):
         if precision is not None:
             if precision < 0 or precision > 1000:
-                raise SchemaError('precision must be greater than 0 and below 1000')
+                raise SchemaError("precision must be greater than 0"
+                                  "and below 1000")
             if scale is None:
                 scale = 0
 
@@ -250,8 +259,8 @@ class ForeignKey(SQLType):
         return False
 
     def to_sql(self):
-        return  f'{self.column} REFERENCES {self.table} ({self.column})' \
-              f" ON DELETE {self.on_delete} ON UPDATE {self.on_update}"
+        return (f'{self.column} REFERENCES {self.table} ({self.column})'
+                f" ON DELETE {self.on_delete} ON UPDATE {self.on_update}")
 
 
 class ArraySQL(SQLType):

@@ -5,13 +5,13 @@ from common.abc import WildcardData
 
 @dataclass
 class Foothold(WildcardData):
-    id: int     = 0
-    prev: int   = 0
-    next: int   = 0
-    x1: int     = 0
-    y1: int     = 0
-    x2: int     = 0
-    y2: int     = 0
+    id: int = 0
+    prev: int = 0
+    next: int = 0
+    x1: int = 0
+    y1: int = 0
+    x2: int = 0
+    y2: int = 0
 
     @property
     def wall(self):
