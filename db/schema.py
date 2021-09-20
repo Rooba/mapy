@@ -954,8 +954,6 @@ class Query:
         if self._offset:
             sql.append(f"OFFSET {self._offset}")
 
-        print(f"{' '.join(sql)};")
-
         if not raw:
             return (f"{' '.join(sql)};", self.conditions.values)
 
