@@ -1,28 +1,9 @@
 from utils import log
 
+
 class Dispatcher:
     def __init__(self, parent):
         self.parent = parent
-
-    # def push_event(self, *args):
-    #     try:
-    #         coro = None
-
-    #         for packet_handler in self.parent._packet_handlers:
-    #             if packet_handler.op_code == op_code:
-    #                 coro = packet_handler.callback
-    #                 break
-
-    #         if not coro:
-    #             raise AttributeError
-
-    #     except AttributeError:
-    #         ("Unhandled event in %s : %s",
-    #                  self.parent.name, op_code.name)
-
-    #     else:
-    #         self.parent._loop.create_task(
-    #             self._run_event(coro, client, packet))
 
     def push(self, client, packet):
         log.packet(f"{self.parent.name} {packet.name} {client.ip} {packet.to_string()}", "in")

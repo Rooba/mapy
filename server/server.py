@@ -1,27 +1,21 @@
 import signal
-
-from asyncio import get_event_loop, create_task, Event, Task
+from asyncio import get_event_loop
 from configparser import ConfigParser
 from time import time
 
-from . import World, WvsGame, WvsLogin, WvsShop
-from db import DatabaseClient
-
-# Not using for now, perhaps allow for api calls to this
-# from external services?
-
-# from http_api import HTTPClient
-
-from utils.tools import wakeup
-from net.packets.packet import packet_handler, Packet
-from utils import log, logger
-from http_api import HTTPServer
+from common.constants import (CHANNEL_COUNT, GAME_PORT)
 from common.enum import Worlds
-from common.constants import (GAME_PORT, USE_DATABASE,
-    USE_HTTP_API, WORLD_COUNT, CHANNEL_COUNT)
+from db import DatabaseClient
+from http_api import HTTPServer
+from utils import log
+from utils.tools import wakeup
+
+from . import World, WvsGame, WvsLogin, WvsShop
 
 
 class ServerApp:
+    _name = "Server Core"
+
     """Server connection listener for incoming client socket connections
 
     Attributes
@@ -40,19 +34,38 @@ class ServerApp:
     """
 
     def __init__(self):
-        self.name = "ServerApp"
         self._loop = get_event_loop()
+        self._http_api = HTTPServer(self, port=54545)
         self._clients = []
-        self._http_api = HTTPServer(self, self._loop)
-
-        self.pending_logins = []
-
-        self.login = None
-        self.shop = None
-        self.worlds = {}
-
-        # if USE_DATABASE:
+        self._pending_logins = []
+        self._login = None
+        self._shop = None
+        self._worlds = {}
         self._load_config()
+
+    @property
+    def login(self):
+        return self._login
+
+    @login.setter
+    def login(self, login):
+        self._login = login
+
+    @property
+    def shop(self):
+        return self._shop
+
+    @shop.setter
+    def shop(self, shop):
+        self._shop = shop
+
+    @property
+    def worlds(self):
+        return self._worlds
+
+    def log(self, message, level=None):
+        level = level or 'info'
+        getattr(log, level)(f"{self._name} {message}")
 
     def _load_config(self):
         self._config = ConfigParser()
@@ -61,7 +74,7 @@ class ServerApp:
             self._make_config()
 
     def _make_config(self):
-        log.info("Please setup the database and other configuration")
+        self.log("Please setup the database and other configuration")
         self._config.add_section('database')
         self._config['database']['user'] = input("DB User: ")
         self._config['database']['password'] = input("DB Password: ")
@@ -76,10 +89,9 @@ class ServerApp:
             world_num = int(input("Number of worlds: [Max 20] "))
             for i in range(world_num):
                 name = Worlds(i).name
-                log.info(f"Setting up {Worlds(i).name}...")
+                self.log(f"Setting up {Worlds(i).name}...")
 
                 self._config['worlds'][name] = 'active'
-
                 self._config[name] = {}
                 self._config[name]['channels'] = input("Channels: ")
                 self._config[name]['exp_rate'] = input("Exp Rate: ")
@@ -96,10 +108,7 @@ class ServerApp:
     @classmethod
     def run(cls):
         self = ServerApp()
-
-        log.info("Initializing HTTP API")
         self._http_api.run()
-
         loop = self._loop
 
         try:
@@ -118,31 +127,23 @@ class ServerApp:
             loop.run_forever()
 
         except KeyboardInterrupt:
-            log.warning(f"{self.name} Received signal to terminate event loop")
+            self.log(f"Received signal to terminate event loop", "warning")
             loop.run_until_complete(self.data.stop())
 
         finally:
             future.remove_done_callback(stop_loop_on_completion)
             loop.run_until_complete(loop.shutdown_asyncgens())
-            log.warning(f"Closed {self.name}")
+            self.log(f"Closed {self._name}", "warning")
 
     async def start(self):
         self._start_time = int(time())
+        self.log("Initializing Server", "debug")
 
-        log.info("Initializing Server")
-
-        # if USE_DATABASE:
-        log.info("Setting up Database Client")
-        self.data = DatabaseClient(self._loop, **self._config['database'])
+        self.data = DatabaseClient(loop=self._loop, **self._config['database'])
         await self.data.start()
-
-        # elif USE_HTTP_API:
-        #     log.info("Setup HTTP Client")
-        #     self.data = HTTPClient(loop=self._loop)
 
         channel_port = GAME_PORT
         self.login = await WvsLogin.run(self)
-
 
         for world in self._config['worlds']:
             if self._config['worlds'][world] != 'active':

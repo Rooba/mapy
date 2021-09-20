@@ -9,7 +9,6 @@ from common.constants import (
     AUTO_LOGIN, AUTO_REGISTER, CENTER_PORT, HOST_IP, LOGIN_PORT,
     MAX_CHARACTERS, REQUEST_PIC, REQUEST_PIN, REQUIRE_STAFF_IP, WORLD_COUNT,
     get_job_from_creation)
-from common.types import PendingLogin
 from db import DatabaseClient
 from net.packets import Packet
 from net.packets.opcodes import CRecvOps, CSendOps
@@ -18,11 +17,20 @@ from server.server_base import ServerBase
 from utils.cpacket import CPacket
 
 
+class PendingLogin:
+    def __init__(self, character, account, requested):
+        self.character = character
+        self.char_id = character.id
+        self.account = account
+        self.requested = requested
+        self.migrated = False
+
+
 class WvsLogin(ServerBase):
+    _name = "Login Server"
 
     def __init__(self, parent):
-        super().__init__(parent, LOGIN_PORT, 'LoginServer')
-        
+        super().__init__(parent, LOGIN_PORT)
         self._worlds = []
         self._auto_register = AUTO_REGISTER
         self._request_pin = REQUEST_PIN
@@ -38,7 +46,6 @@ class WvsLogin(ServerBase):
     async def run(cls, parent):
         login = WvsLogin(parent)
         await login.start()
-
         return login
 
     async def client_connect(self, client):
@@ -47,11 +54,11 @@ class WvsLogin(ServerBase):
     @packet_handler(CRecvOps.CP_CreateSecurityHandle)
     async def create_secuirty_heandle(self, client, packet):
         if AUTO_LOGIN:
-            i_packet = Packet(op_code=CRecvOps.CP_CheckPassword)
-            i_packet.encode_string("admin")
-            i_packet.encode_string("admin")
-            i_packet.seek(2)
-            client.dispatch(i_packet)
+            packet = Packet(op_code=CRecvOps.CP_CheckPassword)
+            packet.encode_string("admin")
+            packet.encode_string("admin")
+            packet.seek(2)
+            client.dispatch(packet)
 
     @packet_handler(CRecvOps.CP_CheckPassword)
     async def check_password(self, client, packet):
@@ -59,7 +66,7 @@ class WvsLogin(ServerBase):
         username = packet.decode_string()
         response = await client.login(username, password)
 
-        if response is 0:
+        if response == 0:
             return await client.send_packet(
                 CPacket.check_password_result(client, response))
 
@@ -146,7 +153,7 @@ class WvsLogin(ServerBase):
         invs.add(bottom, slot=-6)
         invs.add(shoes, slot=-7)
         invs.add(weapon, slot=-11)
-        
+
         character.gender = packet.decode_byte()
 
         character_id = await self.data.account(id=client.account.id)\
@@ -158,7 +165,7 @@ class WvsLogin(ServerBase):
 
             return await client.send_packet(
                 CPacket.create_new_character(character, False))
-        
+
         return await client.send_packet(
             CPacket.create_new_character(character, True))
 
@@ -168,9 +175,8 @@ class WvsLogin(ServerBase):
         character = next((c for c in client.avatars if c.id == uid), None)
         port = self.parent.worlds[client.world_id][client.channel_id].port
 
-        self.parent.pending_logins.append(
+        self.parent._pending_logins.append(
             PendingLogin(character, client.account, datetime.now()))
 
         await client.send_packet(
             CPacket.select_character_result(uid, port))
-    

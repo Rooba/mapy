@@ -1,38 +1,34 @@
-from copy import deepcopy
 import json
+from asyncio import get_event_loop
+from copy import deepcopy
+from datetime import date
 from typing import Union
 
-from asyncpg import create_pool
+from asyncpg import PostgresError, create_pool
 from asyncpg.exceptions import InterfaceError
-from datetime import date
+from character import Account as Account_
+from character import Character, CharacterEntry, FuncKey, SkillEntry
+from field import Field as field
+from field import Foothold, Mob, Npc, Portal
+from game import ItemSlotEquip, SkillLevelData
+from game import item as Item  # ItemSlotBundle,
+from utils import get, log
 
-from character import (
-    Account as Account_,
-    Character,
-    FuncKey,
-    SkillEntry,
-    CharacterEntry,
-)
-from game import (
-    item as Item,
-    # ItemSlotBundle,
-    ItemSlotEquip,
-    SkillLevelData,
-)
-from field import Field as field, Foothold, Mob, Npc, Portal
-from .schema import (
-    Table,
-    Query,
-    Insert,
-    Update,
-    Schema,
-    Column,
-    IntColumn,
-    StringColumn,
-    ListArguments,
-)
+from .schema import (Column, Insert, IntColumn, ListArguments, Query, Schema,
+                     StringColumn, Table, Update)
 from .structure import RMDB, Maplestory
-from utils import log, get
+
+
+class SchemaError(PostgresError):
+    pass
+
+
+class ResponseError(PostgresError):
+    pass
+
+
+class QueryError(PostgresError):
+    pass
 
 
 async def init_conn(conn):
@@ -53,27 +49,45 @@ SKILLS = f"{DATABASE}.skills"
 
 
 class DatabaseClient:
-    def __init__(
-        self,
-        loop,
-        user="postgres",
-        password="",
-        host="127.0.0.1",
-        port=5432,
-        database="postgres",
-    ):
+    _name = "Database Client"
 
-        self.loop = loop
-        self.dsn = f"postgres://{user}:{password}@{host}:{port}/{database}"
+    def __init__(self,
+                 user="postgres",
+                 password="",
+                 host="127.0.0.1",
+                 port=5432,
+                 database="postgres",
+                 loop=None):
+        self._user = user
+        self._pass = password
+        self._host = host
+        self._port = port
+        self._database = database
+        self._loop = loop or get_event_loop()
 
         # WZ Data
         self._items = Items(self)
         self._skills = Skills(self)
 
-    async def start(self, loop=None):
+    @property
+    def dsn(self):
+        return ("postgres://"
+                f"{self._user}:{self._pass}"
+                f"@{self._host}:{self._port}"
+                f"/{self._database}")
+
+    def log(self, message, level=None):
+        level = level if level else 'info'
+        getattr(log, level)(f"{self._name} {message}")
+
+    async def start(self):
         # try:
-        self.pool = await create_pool(self.dsn, loop=self.loop, init=init_conn)
-        log.info("Connected to PostgreSQL Server")
+        self.pool = await create_pool(
+            self.dsn,
+            loop=self._loop,
+            init=init_conn)
+        self.log(f"PostgreSQL Client connected at <lc>{self._host}</lc>:"
+                 f"<lr>{self._port}</lr>")
 
         # await Maplestory.create()
 
@@ -82,10 +96,10 @@ class DatabaseClient:
             await self.pool.close()
             self.pool.terminate()
 
-        log.debug("Closed PostgreSQL pool")
+        self.log("Closed PostgreSQL pool")
 
     async def recreate_pool(self):
-        log.warning("Re-Creating PostgreSQL pool")
+        self.log("Re-Creating PostgreSQL pool", "warning")
         self.pool = await create_pool(self.dsn, loop=self.loop, init=init_conn)
 
     async def initialize_database(self):

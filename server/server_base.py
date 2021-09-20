@@ -1,41 +1,46 @@
-from asyncio import Event, get_event_loop
+from asyncio import Event, get_event_loop, get_running_loop, run_coroutine_threadsafe
+from socket import AF_INET, IPPROTO_TCP, SOCK_STREAM, TCP_NODELAY, socket
 
-from common.constants import HOST_IP
 from net.client import ClientSocket
 from net.packets.packet import PacketHandler
-from net.server import ClientListener, Dispatcher
+from net.server import Dispatcher
 from utils import log
 
 
 class ServerBase:
     """Server base for center, channel, and login servers
-
-    Attributes
-    -----------
-    is_alive : bool
-        Server alive status
-    name: str
-        Server specific name
-
     """
 
-    def __init__(self, parent, port, name=""):
+    def __init__(self, parent, port):
         self._loop = get_event_loop()
         self._parent = parent
         self._port = port
-        self._name = name
-        self._ready = Event(loop=self._loop)
-        self.is_alive = False
+        self._is_alive = False
         self._clients = []
         self._packet_handlers = []
+        self._ready = Event(loop=self._loop)
+        self._alive = Event(loop=self._loop)
         self._dispatcher = Dispatcher(self)
+
+        self._serv_sock = socket(AF_INET, SOCK_STREAM)
+        self._serv_sock.setblocking(0)
+        self._serv_sock.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
+        self._serv_sock.bind(("127.0.0.1", self._port))
+        self._serv_sock.listen(0)
 
         self.add_packet_handlers()
 
-    async def start(self):
-        self.is_alive = True
-        self._acceptor = ClientListener(self, (HOST_IP, self._port))
+    def log(self, message, level=None):
+        level = level or "info"
+        getattr(log, level)(f"{self._name} {message}")
 
+    @property
+    def alive(self):
+        return self._alive.is_set()
+
+    async def start(self):
+        self._is_alive = True
+        self._alive.set()
         self._ready.set()
         self._listener = self._loop.create_task(self.listen())
 
@@ -43,20 +48,19 @@ class ServerBase:
         self._listener.cancel()
 
     async def on_client_accepted(self, socket):
-        client = ClientSocket(socket)
-        maple_client = await getattr(self, 'client_connect')(client)
+        client_sock = ClientSocket(socket)
+        client = await getattr(self, 'client_connect')(client_sock)
+        self.log(f"{self.name} Accepted <lg>{client.ip}</lg>")
 
-        log.info(f"{self.name} Accepted <g>{maple_client.ip}</g>")
-
-        self._clients.append(maple_client)
+        self._clients.append(client)
 
         # Dispatch accept packet to client and begin client socket loop
-        await maple_client.initialize()
+        await client.initialize()
 
     async def on_client_disconnect(self, client):
         self._clients.remove(client)
 
-        log.info(f"Client Disconnected {client.ip}")
+        self.log(f"Client Disconnected {client.ip}")
 
     def add_packet_handlers(self):
         import inspect
@@ -74,8 +78,14 @@ class ServerBase:
         """
         return await self._ready.wait()
 
-    def listen(self):
-        return self._acceptor._listen()
+    async def listen(self):
+        self.log(f"Listening on port <lr>{self._port}</lr>")
+
+        while self._alive.is_set():
+            client_sock, _ = await self._loop.sock_accept(self._serv_sock)
+            client_sock.setblocking(0)
+            client_sock.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
+            self._loop.create_task(self.on_client_accepted(client_sock))
 
     @property
     def data(self):

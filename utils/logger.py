@@ -1,27 +1,44 @@
 from loguru import logger
 from re import IGNORECASE, compile, X
 from sys import stdout
+from common.enum import Worlds
 
 
 SERVER_PATTERN = compile(
     r"""^
     (?P<server>
-        (?P<name>LoginServer|GameServer)
+        (?P<name>[a-zA-Z]+\s?[a-zA-Z]+?)
         (?P<game>
-            \((?P<world_id>[0-9]+)\)
-            \((?P<channel_id>[0-9]+)\)
+            \[(?P<world_id>[0-9]+)\]
+            \[(?P<ch_id>[0-9]+)\]
         )?
     )\s
     (?P<message>.+)$""",
     flags=IGNORECASE | X,
 )
-SERVER_FN = lambda match: (
-    "<r>[</r>"
-    f"<w>{match.group('name')}"
-    f"(<ly>{match.group('world_id')}</ly>)"
-    f"(<lg>{match.group('channel_id')}</lg>)"
-    "</w><r>]</r>"
-)
+
+
+def fmt_record(record):
+    name, message = "Unnamed", ""
+    if (grps := getattr(
+            SERVER_PATTERN.search(record["message"]),
+            "group",
+            None)):
+        message = grps("message")
+        name = grps("name")
+        if grps("game"):
+            name = f"""{(
+                f"<lc>{Worlds(int(grps('world_id'))).name}"
+                f"</lc>: <lr>{int(grps('ch_id')) + 1}</lr>"): <33}"""
+
+    return (
+        "<lg>[</lg>"
+        f"<level>{record['level']: ^10}</level>"
+        "<lg>]</lg>"
+        f"<lg>[</lg>{name: <15}<lg>]</lg> "
+        f"<level>{message}</level>"
+        "\n"
+    )
 
 
 def filter_packets(record):
@@ -41,52 +58,10 @@ def packet(message, bound):
     )
 
 
-setattr(logger, "packet", packet)
-logger.remove()
-
-
-def setup_logger():
-    def main_formatter(record):
-        match = SERVER_PATTERN.search(record["message"])
-
-        if match:
-            if match.group("game"):
-                message = match.group("message")
-                server_name = (
-                    "<r>[</r>"
-                    f"<w>{match.group('name')}"
-                    f"(<ly>{match.group('world_id')}</ly>)"
-                    f"(<lg>{match.group('channel_id')}</lg>)"
-                    "</w><r>]</r>"
-                )
-
-            else:
-                message = match.group("message")
-                server_name = f"<r>[</r><w>{match.group('name')}</w><r>]</r>"
-
-        else:
-            server_name = "<r>[</r>ServerApp<r>]</r>"
-            message = record["message"]
-
-        string = (
-            f"<lg>[</lg><level>{record['level']:^12}</level><lg>]</lg>"
-            f" {server_name} <level>{message}</level>"
-        )
-        return string + "\n"
-
-    logger.add(
-        stdout,
-        filter=filter_packets,
-        colorize=True,
-        format=main_formatter,
-        diagnose=True,
-    )
-
-    def packet_fmt(direction):
+def packet_fmt(direction):
         packet_re = compile(
             r"(?P<opcode>[A-Za-z0-9\._]+)\s(?P<ip>[0-9\.]+)\s(?P<packet>[A-Z0-9\s]*)"
         )
-
         def wrap(record):
             match_packet = packet_re.search(record["message"])
             matches = list(match_packet.group(1, 2, 3))
@@ -97,8 +72,22 @@ def setup_logger():
                 "\n"
             )
             return string
-
         return wrap
+
+
+setattr(logger, "packet", packet)
+logger.remove()
+
+
+def setup_logger():
+    logger.add(
+        stdout,
+        filter=filter_packets,
+        colorize=True,
+        format=fmt_record,
+        diagnose=True,
+        enqueue=True
+    )
 
     logger.level("INPACKET", 0, color="<c>")
     logger.level("OUTPACKET", 0, color="<lm>")
@@ -108,6 +97,8 @@ def setup_logger():
         level="INPACKET",
         filter=filter_bound("INPACKET"),
         format=packet_fmt("INPACKET"),
+        diagnose=True,
+        enqueue=True
     )
     logger.add(
         stdout,
@@ -115,6 +106,8 @@ def setup_logger():
         level="OUTPACKET",
         filter=filter_bound("OUTPACKET"),
         format=packet_fmt("OUTPACKET"),
+        diagnose=True,
+        enqueue=True
     )
 
 
