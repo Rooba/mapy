@@ -15,75 +15,90 @@ from .types import (
 from .errors import SchemaError, ResponseError, QueryError
 
 
-class SQLOperator:
-    default_template = "{column} {operator} {value}"
+def default_tmpl(c, o, v):
+    return f"{c} {o} {v}"
 
-    def __init__(self, sql_operator: str, python_operator: str, str_template: str):
-        self.sql = sql_operator
-        self.python = python_operator
-        self.template = str_template
+
+class SQLOperator:
+    def __init__(self,
+                 sql_oper: str,
+                 py_oper: str,
+                 str_tmpl: str = None):
+        self.__sql_oper = sql_oper
+        self.__py_oper = py_oper
+        self.__str_tmpl = default_tmpl if not str_tmpl else str_tmpl
 
     def __str__(self):
-        return self.sql
+        return self.__sql_oper
 
-    def format(self, **kwargs):
-        return self.template.format(operator=self.sql, **kwargs)
+    # def format(self, **kwargs):
+    #     return self.template.format(operator=self.sql, **kwargs)
+
+    def format(self, column=None, *, value=0, min_value=0, max_value=0):
+        if value and not min_value and not max_value:
+            return self.__str_tmpl(column, self.__sql_oper, value)
+        elif min_value and max_value:
+            return self.__str_tmpl(column, self.__sql_oper, min_value, max_value)
 
     @classmethod
     def lt(cls):
-        return cls("<", "<", cls.default_template)
+        return cls("<", "<", default_tmpl)
 
     @classmethod
     def le(cls):
-        return cls("<=", "<=", cls.default_template)
+        return cls("<=", "<=", default_tmpl)
 
     @classmethod
     def eq(cls):
-        return cls("=", "==", cls.default_template)
+        return cls("=", "==", default_tmpl)
 
     @classmethod
     def ne(cls):
-        return cls("!=", "!=", cls.default_template)
+        return cls("!=", "!=", default_tmpl)
 
     @classmethod
     def gt(cls):
-        return cls(">", ">", cls.default_template)
+        return cls(">", ">", default_tmpl)
 
     @classmethod
     def ge(cls):
-        return cls(">=", ">=", cls.default_template)
+        return cls(">=", ">=", default_tmpl)
 
     @classmethod
     def like(cls):
-        return cls("~~", None, cls.default_template)
+        return cls("~~", None, default_tmpl)
 
     @classmethod
     def ilike(cls):
-        return cls("~~*", None, cls.default_template)
+        return cls("~~*", None, default_tmpl)
 
     @classmethod
     def not_like(cls):
-        return cls("!~~", None, cls.default_template)
+        return cls("!~~", None, default_tmpl)
 
     @classmethod
     def not_ilike(cls):
-        return cls("!~~*", None, cls.default_template)
+        return cls("!~~*", None, default_tmpl)
 
     @classmethod
     def between(cls):
-        return cls("BETWEEN", None, "{column} {operator} {minvalue} AND {maxvalue}")
+        return cls("BETWEEN", None, lambda c, o, mn_v, mx_v: f"{c} {o} {mn_v} AND {mx_v}")
 
     @classmethod
     def in_(cls):
-        return cls("=", "in", "{column} {operator} any({value})")
+        return cls("=", "in", lambda c, o, v: f"{c} {o} any({v})")
 
     @classmethod
     def in__(cls):
-        return cls("IN", "in", "{column} {operator} ({value})")
+        return cls("IN", "in", lambda c, o, v: f"{c} {o} ({v})")
+
+    @classmethod
+    def contains(cls):
+        return cls("=", "in", lambda c, o, v: f"{v} {o} any({c})")
 
     @classmethod
     def is_(cls):
-        return cls("IS", "is", cls.default_template)
+        return cls("IS", "is", default_tmpl)
 
 
 class Column_:
@@ -244,6 +259,11 @@ class Column:
             )
 
         return SQLComparison(SQLOperator.in_(), self.aggregate, self.full_name, value)
+
+    def contains(self, value): # *values
+        # if (isinstance(v, Column) == True for v in values):
+        if isinstance(value, Column) or isinstance(value, (int, str, bool)):
+            return SQLComparison(SQLOperator.contains(), self.aggregate, self.full_name, value)
 
     @classmethod
     def from_dict(cls, data):
@@ -783,6 +803,7 @@ class Query:
         self._offset = None
         self._inner_join = None
         self._left_join = None
+        self._using = None
         self.conditions = SQLConditions(parent=self)
         self.where = self.conditions.queue_conditions
         self.having = self.conditions.add_having
@@ -865,18 +886,23 @@ class Query:
         self._offset = number
         return self
 
-    def inner_join(self, table_name, key):
-        if not isinstance(key, str):
-            raise TypeError("Method 'using' only accepts a string argument.")
+    def inner_join(self, table, col):
+        if not isinstance(col, str):
+            raise TypeError("Method 'inner_join' only accepts a string argument.")
 
-        self._inner_join = [table_name, key]
+        self._inner_join = table
+        self._using = col
         return self
 
-    def left_join(self, table_name, key):
-        if not isinstance(key, str):
-            raise TypeError("Method 'using' only accepts a string argument.")
+    def left_join(self, table, *cols):
+        if not isinstance(table, (Table, str)):
+            raise TypeError("Argument 'table' must be of type 'str' or 'Table'")
+        for col in cols:
+            if not isinstance(col, (Column, str)):
+                raise TypeError("Using columns must be of type 'str' or 'Column'")
 
-        self._left_join = [table_name, key]
+        self._left_join = table
+        self._using = cols
         return self
 
     def sql(self, delete=False, raw=False):
@@ -902,12 +928,12 @@ class Query:
 
         if self._left_join:
             sql.append(
-                (f"LEFT JOIN {self._left_join[0]} " f"USING ({self._left_join[1]}) ")
+                (f"LEFT JOIN {self._left_join} " f"USING({', '.join(self._using)}) ")
             )
 
         elif self._inner_join:
             sql.append(
-                (f"INNER JOIN {self._inner_join[0]} " f"USING ({self._inner_join[1]}) ")
+                (f"INNER JOIN {self._inner_join} " f"USING({self._using}) ")
             )
 
         if self.conditions._queued_conditions:
@@ -927,6 +953,8 @@ class Query:
             sql.append(f"LIMIT {self._limit}")
         if self._offset:
             sql.append(f"OFFSET {self._offset}")
+
+        print(f"{' '.join(sql)};")
 
         if not raw:
             return (f"{' '.join(sql)};", self.conditions.values)

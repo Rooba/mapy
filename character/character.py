@@ -16,7 +16,7 @@ class Character(FieldObject):
         self._data = None
 
         self.stats = CharacterStats(**stats)
-        self.inventories = InventoryManager()
+        self.inventories = InventoryManager(self)
         self.func_keys = FuncKeys(self)
         self.modify = CharacterModifiers(self)
         self.skills = {}
@@ -45,7 +45,7 @@ class Character(FieldObject):
     @property
     def data(self):
         return self._data
-    
+
     @data.setter
     def data(self, value):
         self._data = value
@@ -72,7 +72,7 @@ class Character(FieldObject):
 
     def encode_entry(self, packet):
         ranking = False
-        
+
         self.stats.encode(packet)
         self.encode_look(packet)
         packet.encode_byte(0)
@@ -128,7 +128,7 @@ class Character(FieldObject):
         for index, item in equipped.items():
             if index > -100 and equipped.get(index - 100):
                 eqp_normal[index] = item
-            
+
             else:
                 new_index = index + 100 if index < -100 else index
                 stickers[new_index] = item
@@ -136,15 +136,15 @@ class Character(FieldObject):
         inv_equip = {slot: item for slot, item in self.equip_inventory.items.items() if slot >= 0}
         dragon_equip = {slot: item for slot, item in self.equip_inventory.items.items() if slot >= -1100 and slot < -1000}
         mechanic_equip = {slot: item for slot, item in self.equip_inventory.items.items() if slot >= -1200 and slot < -1100}
-        
+
         for inv in [eqp_normal, stickers, inv_equip, dragon_equip, mechanic_equip]:
             for slot, item in inv.items():
                 if not item:
                     continue
-                
+
                 packet.encode_short(abs(slot))
                 item.encode(packet)
-            
+
             packet.encode_short(0)
 
         self.consume_inventory.encode(packet)
@@ -159,7 +159,7 @@ class Character(FieldObject):
 
             if False:
                 packet.encode_int(skill.mastery_level) # is skill needed for mastery
-            
+
         packet.encode_short(0)
 
     def encode_quests(self, packet):
@@ -179,7 +179,7 @@ class Character(FieldObject):
     def encode_teleports(self, packet):
         for _ in range(5):
             packet.encode_int(0)
-        
+
         for _ in range(10):
             packet.encode_int(0)
 
@@ -214,7 +214,7 @@ class Character(FieldObject):
         for index, item in equipped.items():
             if index > -100 and equipped.get(index - 100):
                 unseen[index] = item
-            
+
             else:
                 new_index = index + 100 if index < -100 else index
                 stickers[new_index] = item

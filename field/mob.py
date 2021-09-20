@@ -10,11 +10,9 @@ class Mob(Life):
     mob_id: int = 0
     hp: int = 0
     mp: int = 0
-
     hp_recovery: int = 0
     mp_recovery: int = 0
     exp: int = 0
-
     physical_attack: int = 0
 
     def __post_init__(self):

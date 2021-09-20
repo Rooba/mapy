@@ -48,7 +48,7 @@ DATABASE = "maplestory"
 ACCOUNTS = f"{DATABASE}.accounts"
 CHARACTERS = f"{DATABASE}.characters"
 ITEMS = f"{DATABASE}.inventory_items"
-EQUIPS = f"{DATABASE}.inventory_equips"
+EQUIPS = f"{DATABASE}.inventory_equipment"
 SKILLS = f"{DATABASE}.skills"
 
 
@@ -146,8 +146,20 @@ class DatabaseClient:
     def schema(self, name):
         return Schema(self, name)
 
+    # def account(self, *multi_acc, **single_acc):
     def account(self, **kwargs):
+        """Request either an tuple of dictionary searches
+        # or a single account search using kwargs"""
+        # if multi_acc and single_acc:
+        #     raise ValueError("If using 'multi_acc' do not use 'single_acc'")
         return Account(self, **kwargs)
+
+    def _accounts(self, *lookups):
+        where_queries = {}
+        for lookup in lookups:
+            for k, v in lookup.items():
+                where_queries.setdefault(k, [])
+                where_queries[k].append(v)
 
     @property
     def characters(self):
@@ -196,9 +208,9 @@ class QueryTable:
     def query(self, table=None):
         return self._db.query(table if table else self._table)
 
-    @property
-    def query(self):
-        return self.table.query
+    # @property
+    # def query(self):
+    #     return self._db.query(self._table)
 
     def insert(self, *args, **kwargs):
         return self.query.insert(*args, **kwargs)
@@ -237,6 +249,9 @@ class Account(QueryTable):
         self.characters = Characters(self._db, account_id=self.id)
 
     async def get_account(self):
+        # Called as a wrapper for all account functions
+        # Loading (if exists) the account onto the client object
+        # Needs to be lazily loaded and not hot loaded every call
         if not self.username or self.id:
             log.error("Missing username or password to search by")
 
@@ -246,7 +261,8 @@ class Account(QueryTable):
             if hasattr(self, a) and getattr(self, a, None)
         }
 
-        self.account = Account_(**(await self.query.where(**search).get_first()))
+        acc = await self.query().where(**search).get_first()
+        self.account = Account_(**acc)
 
     @get_acc
     async def register(self):
@@ -300,11 +316,11 @@ class Characters(QueryTable):
 
         if not world_id:
             characters = await (
-                self.query.where(account_id=self.account_id).order_by("id").get()
+                self.query().where(account_id=self.account_id).order_by("id").get()
             )
         else:
             characters = await (
-                self.query.where(account_id=self.account_id, world_id=world_id)
+                self.query().where(account_id=self.account_id, world_id=world_id)
                 .order_by("id")
                 .get()
             )
@@ -331,7 +347,7 @@ class Characters(QueryTable):
         return entries
 
     async def load(self, character_id, client):
-        character = await self.query.where(id=character_id).get_first()
+        character = await self.query().where(id=character_id).get_first()
 
         character = Character(character)
         character.client = client
@@ -342,15 +358,15 @@ class Characters(QueryTable):
 
         skills = await self.query(SKILLS).where(character_id=character.id).get()
 
+        # Get static data from rmdb for character skills
         for skill in skills:
-            level_data = await self._db.skills.get_skill_level_data(skill["id"])
-            character.skills[skill["id"]] = SkillEntry(level_data=level_data, **skill)
+            level_data = await self._db.skills.get_skill_level_data(skill["skill_id"])
+            character.skills[skill["skill_id"]] = SkillEntry(level_data=level_data, **skill)
 
         return character
 
     async def get(self, **search_by):
-        character = await self.query.where(**search_by).get_first()
-
+        character = await self.query().where(**search_by).get_first()
         return character
 
     async def create(self, character):
@@ -419,29 +435,32 @@ class Characters(QueryTable):
                 ).primaries("inventory_item_id").commit(do_update=True)
 
 
+class InventoryItems(QueryTable):
+    def __init__(self, db):
+        self._db = db
+        self._table = ITEMS
+
+
+class InventoryEquips(QueryTable):
+    def __init__(self, db):
+        self._db = db
+        self._table = EQUIPS
+
+
 class Inventories:
     def __init__(self, db):
         self._db = db
-        self._items_table = db.table("maplestory.inventory_items")
-        self._equips_table = db.table("maplestory.inventory_equipment")
-
-    @property
-    def items_table(self):
-        return deepcopy(self._items_table)
-
-    @property
-    def equips_table(self):
-        return deepcopy(self._equips_table)
+        self.items_table = InventoryItems(db)
+        self.equips_table = InventoryEquips(db)
 
     async def load(self, character):
         items = self.items_table.query().where(character_id=character.id)
 
-        items_col, equips_col = IntColumn.many(
-            ("items.inventory_item_id",), ("inventory_equipment.inventory_item_id",)
-        )
+        items_col = IntColumn("items.inventory_item_id")
+        equips_col = IntColumn("inventory_equipment.inventory_item_id")
 
         equips = (
-            self._db.query("maplestory.inventory_equipment", "items")
+            self._db.query(EQUIPS, "items")
             .select("inventory_equipment.*")
             .where(equips_col.in_(items_col))
         )
@@ -450,7 +469,7 @@ class Inventories:
             self._db.query()
             .with_(("items", items), ("equips", equips))
             .table("items")
-            .inner_join("equips", "inventory_item_id")
+            .left_join("equips", "inventory_item_id")
             .get()
         )
 
@@ -492,7 +511,7 @@ class Inventories:
                 equips.append(equip_data)
 
         q = (
-            await self._db.table("maplestory.inventory_items")
+            await self.items_table
             .insert.row(items)
             .primaries("inventory_item_id")
             .returning("inventory_items.inventory_item_id, inventory_items.position")
@@ -674,9 +693,9 @@ class Field:
 
         mobs = (
             self._db.query("rmdb.mob_data", "life")
-            .select("mob_data.*", "life.life_type", "mob_data.mob_id", distinct=True)
+            .select("mob_data.*", "life.life_type", distinct=True)
             .where(
-                StringColumn("life.life_type").__eq__("mob"),
+                StringColumn("life.life_type") == "mob",
                 mob_column.in_(life_column),
             )
         )
@@ -685,7 +704,7 @@ class Field:
             self._db.query()
             .with_(("life", life), ("mobs", mobs))
             .table("life")
-            .left_join("mobs", "life_type")
+            .left_join("mobs", "life_type", "flags")
         )
 
         all_life = await all_life.get()

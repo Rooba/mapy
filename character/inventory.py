@@ -1,12 +1,11 @@
-from typing import Union
-
 from common import abc
 from common.enum import InventoryType
 from game import item as Item
 
 
 class InventoryManager:
-    def __init__(self):
+    def __init__(self, character):
+        self._character = character
         self.tracker = Tracker()
         self.inventories = {}
 
@@ -21,13 +20,13 @@ class InventoryManager:
         return self.tracker.inventory_changes
 
     def get(self, inventory_type):
-        
+
         if isinstance(inventory_type, InventoryType):
             return self.inventories[inventory_type.value]
 
         elif isinstance(inventory_type, int):
             return self.inventories.get(inventory_type)
-        
+
         return None
 
     def add(self, item, slot=0):
@@ -45,7 +44,7 @@ class Tracker:
         self.type = InventoryType.TRACKER
         self._starting = []
 
-        # Only update this on stat improvement, 
+        # Only update this on stat improvement,
         # movement, or new item added
         self._items = {i: {} for i in range(1, 6)}
 
@@ -54,22 +53,28 @@ class Tracker:
 
     @property
     def inventory_changes(self):
-        return [{**item.__dict__, 'inventory_type': inv_type, 'position': slot} for inv_type, inventory in self._items.items() for slot, item in inventory.items()]
+        return [
+            {**item.__dict__, "inventory_type": inv_type, "position": slot}
+            for inv_type, inventory in self._items.items()
+            for slot, item in inventory.items()
+        ]
 
     # def get_update(self):
-    #     return [{**item.__dict__, 'inventory_type': inv_type, 'position': slot} for inv_type, inventory in self._items.items() for slot, item in inventory.items()]
+    #     return [{**item.__dict__,
+    #              'inventory_type': inv_type,
+    #              'position': slot
+    #              } for inv_type, inventory in self._items.items()
+    #             for slot, item in inventory.items()]
 
     def get_throwaway(self):
         throwaway = []
 
         for _, inv in self._items.items():
             for _, item in inv.items():
-                if not item:
+                if (item is None
+                        or item.inventory_item_id in self._starting):
                     continue
-                
-                if item.inventory_item_id in self._starting:
-                    continue
-                
+
                 throwaway.append(item.inventory_item_id)
 
         return throwaway
@@ -118,7 +123,7 @@ class Inventory(abc.Inventory):
             pass
 
         return items
-    
+
     @property
     def slots(self):
         return self._slots
@@ -130,5 +135,5 @@ class Inventory(abc.Inventory):
 
             packet.encode_byte(slot)
             item.encode(packet)
-        
+
         packet.encode_byte(0)
