@@ -1,7 +1,15 @@
-.vscode
-*.pyc
-__pycache__
-.mypy_cache/
-config.ini
-scratch.md
-test*.py
+# environment / pycache
+**/.git
+**/.vscode
+**/.vs
+**/*.pyc
+**/__pycache__
+**/.DS_STORE
+**/.mypy_cache
+
+
+# configs / tests
+**/test*.*
+
+**/notes.md
+**/config.ini
