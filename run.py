@@ -1,8 +1,3 @@
-from asyncio import get_event_loop
-from sys import argv
+from mapy import WvsCenter
 
-from server.server import ServerApp
-
-loop = get_event_loop()
-
-ServerApp.run()
+WvsCenter.run()

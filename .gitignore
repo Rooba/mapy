@@ -1,7 +1,7 @@
-.vscode/
+.vscode
 *.pyc
-__pycache__/
+__pycache__
 .mypy_cache/
 config.ini
 scratch.md
-test.py
+test*.py

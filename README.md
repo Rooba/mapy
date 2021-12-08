@@ -5,8 +5,9 @@ Maplestory emulator written in Python
 ## Requirements
 
 - Postgresql (only tested with 11)
-- Python 3.8+
+- Python 3.10+
 - asyncpg
+- pycryptodomex
 
 ## To-Do
 
