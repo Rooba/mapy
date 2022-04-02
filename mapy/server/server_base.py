@@ -7,12 +7,14 @@ from mapy import log
 
 
 class Dispatcher:
+
     def __init__(self, parent):
         self.parent = parent
 
     def push(self, client, packet):
         log.packet(
-            f"{self.parent.name} {packet.name} {client.ip} {packet.to_string()}", "in"
+            f"{self.parent.name} {packet.name} {client.ip} {packet.to_string()}",
+            "in"
         )
 
         try:
@@ -27,7 +29,9 @@ class Dispatcher:
                 raise AttributeError
 
         except AttributeError:
-            log.warning(f"{self.parent.name} Unhandled event in : <w>{packet.name}</w>")
+            log.warning(
+                f"{self.parent.name} Unhandled event in : <w>{packet.name}</w>"
+            )
 
         else:
             self.parent._loop.create_task(self._run_event(coro, client, packet))
@@ -97,10 +101,8 @@ class ServerBase:
         for _, member in members:
             # Register all packet handlers for inheriting server
 
-            if (
-                isinstance(member, PacketHandler)
-                and member not in self._packet_handlers
-            ):
+            if (isinstance(member, PacketHandler)
+                    and member not in self._packet_handlers):
                 self._packet_handlers.append(member)
 
     async def wait_until_ready(self) -> bool:

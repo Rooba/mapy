@@ -5,7 +5,6 @@ from struct import pack, unpack
 from .opcodes import CRecvOps
 from mapy.utils.tools import to_string
 
-
 # Junk codes for colorizing incoming packets from custom client
 debug_codes = [
     ("r", ("|", "|")),
@@ -146,10 +145,8 @@ class Packet(ByteBuffer):
 
             return
 
-        if raw:
-            return
-
-        self.op_code = CRecvOps(self.decode_short())
+        if not raw:
+            self.op_code = CRecvOps(self.decode_short())
 
     @property
     def name(self):
@@ -169,6 +166,7 @@ class Packet(ByteBuffer):
 
 
 class PacketHandler:
+
     def __init__(self, name, callback, **kwargs):
         self.name = name
         self.callback = callback
@@ -176,6 +174,7 @@ class PacketHandler:
 
 
 def packet_handler(op_code=None):
+
     def wrap(func):
         return PacketHandler(func.__name__, func, op_code=op_code)
 

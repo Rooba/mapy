@@ -272,7 +272,7 @@ class ForeignKey(SQLType):
 
 
 class ArraySQL(SQLType):
-    def __init__(self, inner_type, size: int = None):
+    def __init__(self, inner_type, size: int | None = None):
         if not isinstance(inner_type, SQLType):
             raise SchemaError("Array inner type must be an SQLType")
         self.type = inner_type

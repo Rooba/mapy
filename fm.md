@@ -40,9 +40,9 @@ Viewing the map page below can give a better example
 [ ] Browseable Free market through mapy web
 -----------------------------------------------
 
-> **Using in-game assets as well as character model, walking around from room to room and interacting with actual players in game**
+> *__Using in-game assets as well as character model, walking around from room to room and interacting with actual players in game__*
 >
-> **Steering away from entirely allowing player to buy on mapy web offers benefits to both players and hosts**
+> *__Steering away from entirely allowing player to buy on mapy web offers benefits to both players and hosts__*
 >
 > - Promises to not entirely make getting optimal spots practically pointless for players who spend the time to plan for it
 >

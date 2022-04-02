@@ -1,4 +1,5 @@
 from abc import ABCMeta
+from typing import Any
 
 
 class Serializable(metaclass=ABCMeta):
@@ -31,7 +32,10 @@ class WildcardData:
 
 
 class Inventory:
-    ...
+    items: dict[int | None, Any] | None
+    
+    def add(self, item, slot=None):
+        raise NotImplementedError
     # def add(self, item, slot=None):
     #     if isinstance(item, ItemSlotEquip):
     #         free_slot = self.get_free_slot() if not slot else slot

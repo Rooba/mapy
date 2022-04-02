@@ -4,11 +4,22 @@ from dataclasses import dataclass, is_dataclass
 from random import randint
 
 
+class TagPoint:
+
+    def __init__(self, x=0, y=0):
+        self.x = x
+        self.y = y
+
+    def __str__(self):
+        return f"{self.x},{self.y}"
+
+
 class Random:
+
     def __init__(self):
-        self.seed_1 = randint(1, 2 ** 31 - 1)
-        self.seed_2 = randint(1, 2 ** 31 - 1)
-        self.seed_3 = randint(1, 2 ** 31 - 1)
+        self.seed_1 = randint(1, 2**31 - 1)
+        self.seed_2 = randint(1, 2**31 - 1)
+        self.seed_3 = randint(1, 2**31 - 1)
 
     def encode(self, packet):
         packet.encode_int(self.seed_1)
@@ -24,6 +35,7 @@ def find(predicate, seq):
 
 
 def get(iterable, **attrs):
+
     def predicate(elem):
         for attr, val in attrs.items():
             nested = attr.split("__")
@@ -73,8 +85,7 @@ def fix_dict_keys(dict_):
 
 def to_string(bytes_):
     return " ".join(
-        [bytes_.hex()[i : i + 2].upper() for i in range(0, len(bytes_.hex()), 2)]
-    )
+        [bytes_.hex()[i:i + 2].upper() for i in range(0, len(bytes_.hex()), 2)])
 
 
 async def wakeup():
@@ -83,6 +94,7 @@ async def wakeup():
 
 
 def nested_dataclass(*args, **kwargs):
+
     def wrapper(cls):
         cls = dataclass(cls, **kwargs)
         original_init = cls.__init__
@@ -104,6 +116,7 @@ def nested_dataclass(*args, **kwargs):
 
 
 class Manager(list):
+
     def get(self, search):
         return first_or_default(self, search)
 

@@ -1,7 +1,7 @@
-from enum import Enum
+from enum import Enum, IntEnum
 
 
-class OpCodes(Enum):
+class OpCodes(IntEnum):
     ...
 
 

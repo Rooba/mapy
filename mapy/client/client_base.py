@@ -1,18 +1,16 @@
-from mapy.net.packet import Packet
-from mapy.net.crypto import (
-    MapleIV,
-    decrypt_transform,
-    encrypt_transform,
-    MapleAes,
-)
-from mapy.common.constants import VERSION, SUB_VERSION, LOCALE
+from asyncio import Lock, get_event_loop
 from random import randint
 
-from asyncio import get_event_loop, Lock
-from mapy import logger as log
+from mapy import log
+from mapy.common.constants import LOCALE, SUB_VERSION, VERSION
+from mapy.net.crypto import (
+    MapleAes, MapleIV, decrypt_transform, encrypt_transform
+)
+from mapy.net.packet import Packet
 
 
 class ClientSocket:
+
     def __init__(self, socket):
         self._loop = get_event_loop()
         self._socket = socket
@@ -49,8 +47,8 @@ class ClientSocket:
                 async with self._lock:
                     length = MapleAes.get_length(m_recv_buffer)
                     if length != len(m_recv_buffer) - 4:
-                        self._overflow = m_recv_buffer[length + 4 :]
-                        m_recv_buffer = m_recv_buffer[: length + 4]
+                        self._overflow = m_recv_buffer[length + 4:]
+                        m_recv_buffer = m_recv_buffer[:length + 4]
 
                     m_recv_buffer = self.manipulate_buffer(m_recv_buffer)
 
@@ -62,8 +60,7 @@ class ClientSocket:
 
         buf = packet[:]
 
-        final_length = packet_length + 4
-        final = bytearray(final_length)
+        final = bytearray(packet_length + 4)
         async with self._lock:
             MapleAes.get_header(final, self.m_siv, packet_length, VERSION)
             buf = encrypt_transform(buf)
@@ -84,6 +81,7 @@ class ClientSocket:
 
 
 class ClientBase:
+
     def __init__(self, parent, socket):
         self.m_socket = socket
         self._parent = parent
@@ -95,10 +93,8 @@ class ClientBase:
         self.channel_id = None
 
     async def initialize(self):
-        self.m_socket.m_siv = MapleIV(randint(0, 2 ** 31 - 1))
-        # self.m_socket.m_siv = MapleIV(100)
-        self.m_socket.m_riv = MapleIV(randint(0, 2 ** 31 - 1))
-        # self.m_socket.m_riv = MapleIV(50)
+        self.m_socket.m_siv = MapleIV(randint(0, 2**31 - 1))
+        self.m_socket.m_riv = MapleIV(randint(0, 2**31 - 1))
 
         packet = Packet(op_code=0x0E)
         packet.encode_short(VERSION)

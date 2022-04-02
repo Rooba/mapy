@@ -95,7 +95,7 @@ class DatabaseClient:
 
     async def start(self):
         # try:
-        self.pool = await create_pool(self.dsn, loop=self._loop, init=init_conn)
+        # self.pool = await create_pool(self.dsn, loop=self._loop, init=init_conn)
         self.log(
             f"PostgreSQL Client connected at <lc>{self._host}</lc>:"
             f"<lr>{self._port}</lr>"

@@ -7,6 +7,7 @@ from mapy.scripts.npc.npc_context import NpcContext
 
 
 class NpcScript(ScriptBase):
+
     def __init__(self, npc_id, client, default=False):
         if default:
             script = f"scripts/npc/default.py"
@@ -46,6 +47,7 @@ class NpcScript(ScriptBase):
         action(packet)
 
         self._last_msg_type = type_
+        self._response.task_done()
         await self._parent.send_packet(packet)
 
     async def reuse_dialogue(self, msg):
@@ -66,10 +68,12 @@ class NpcScript(ScriptBase):
             await self.reuse_dialogue(self._prev_msgs[self._prev_id])
 
         else:
+            self._response.task_done()
             await self._response.put(resp)
 
     def end_chat(self):
         self.parent.npc_script = None
+        self._response.task_done()
 
     @staticmethod
     def get_script(npc_id, client):

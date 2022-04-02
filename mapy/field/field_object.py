@@ -7,6 +7,7 @@ from .move_path import MovePath
 
 
 class FieldObject(WildcardData):
+
     def __init__(self):
         self._obj_id = -1
         self._position = MovePath()
@@ -82,8 +83,8 @@ class Life(FieldObject):
     cy: int = 0
     f: int = 0
     hide: int = 0
-    rx0: int = 0  # min click position
-    rx1: int = 0  # max click position
+    rx0: int = 0    # min click position
+    rx1: int = 0    # max click position
     mob_time: int = 0
 
 
@@ -135,6 +136,7 @@ class Mob(Life):
 
 @dataclass
 class Npc(Life):
+
     def __post_init__(self):
         self.pos = MovePath(self.x, self.cy, self.foothold)
         self.id = self.life_id

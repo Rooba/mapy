@@ -7,9 +7,8 @@
 **/.DS_STORE
 **/.mypy_cache
 
-
-# configs / tests
-**/test*.*
-
 **/notes.md
-**/config.ini
+**/.*
+**/config.*
+**/test*.*
+**/http_db_client.py

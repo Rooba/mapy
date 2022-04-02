@@ -1,5 +1,7 @@
 from dataclasses import dataclass, field
 from typing import List
+from attrs import define
+import attr
 
 from mapy.common import WildcardData
 
@@ -12,8 +14,8 @@ def default_pet_locker():
     return [0, 0, 0]
 
 
-@dataclass
-class CharacterStats(WildcardData):
+@define(kw_only=True, init=True, auto_attribs=True)
+class CharacterStats(object):
     id: int = 0
     name: str = "Maple Char"
     world_id: int = 0
@@ -22,14 +24,13 @@ class CharacterStats(WildcardData):
     skin: int = 0
     face: int = 20001
     hair: int = 30003
-
     level: int = 10
     job: int = 0
-    str: int = 10
-    dex: int = 10
-    int: int = 10
-    luk: int = 10
 
+    str_: int = 10
+    dex: int = 10
+    int_: int = 10
+    luk: int = 10
     hp: int = 50
     m_hp: int = 50
     mp: int = 5
@@ -37,18 +38,18 @@ class CharacterStats(WildcardData):
 
     ap: int = 0
     sp: int = 0
-    extend_sp: List = field(default_factory=default_extend_sp)
+    extend_sp: list = []
 
     exp: int = 0
     money: int = 0
     fame: int = 0
-
     temp_exp: int = 0
+
     field_id: int = 100000000
     portal: int = 0
     play_time: int = 0
     sub_job: int = 0
-    pet_locker: List = field(default_factory=default_pet_locker)
+    pet_locker: list = []
 
     def encode(self, packet) -> None:
         packet.encode_int(self.id)
@@ -63,9 +64,9 @@ class CharacterStats(WildcardData):
 
         packet.encode_byte(self.level)
         packet.encode_short(self.job)
-        packet.encode_short(self.str)
+        packet.encode_short(self.str_)
         packet.encode_short(self.dex)
-        packet.encode_short(self.int)
+        packet.encode_short(self.int_)
         packet.encode_short(self.luk)
         packet.encode_int(self.hp)
         packet.encode_int(self.m_hp)

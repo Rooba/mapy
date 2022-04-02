@@ -5,18 +5,19 @@ from mapy.utils.tools import Random, filter_out_to
 
 from .character_stats import CharacterStats
 from .func_key import FuncKeys
-from .inventory import InventoryManager, InventoryType
+from .inventory import Inventory, InventoryManager, InventoryType
 from .modifiers import CharacterModifiers
 
 
 class Character(FieldObject):
+
     def __init__(self, stats):
         super().__init__()
         self._client = None
         self._data = None
 
         self.stats = CharacterStats(**stats)
-        self.inventories = InventoryManager(self)
+        self.inventories: InventoryManager = InventoryManager(self)
         self.func_keys = FuncKeys(self)
         self.modify = CharacterModifiers(self)
         self.skills = {}
@@ -51,23 +52,23 @@ class Character(FieldObject):
         self._data = value
 
     @property
-    def equip_inventory(self):
+    def equip_inventory(self) -> Inventory | None:
         return self.inventories.get(1)
 
     @property
-    def consume_inventory(self):
+    def consume_inventory(self) -> Inventory | None:
         return self.inventories.get(2)
 
     @property
-    def install_inventory(self):
+    def install_inventory(self) -> Inventory | None:
         return self.inventories.get(3)
 
     @property
-    def etc_inventory(self):
+    def etc_inventory(self) -> Inventory | None:
         return self.inventories.get(4)
 
     @property
-    def cash_inventory(self):
+    def cash_inventory(self) -> Inventory | None:
         return self.inventories.get(5)
 
     def encode_entry(self, packet):
@@ -134,7 +135,9 @@ class Character(FieldObject):
                 stickers[new_index] = item
 
         inv_equip = {
-            slot: item for slot, item in self.equip_inventory.items.items() if slot >= 0
+            slot: item
+            for slot, item in self.equip_inventory.items.items()
+            if slot >= 0
         }
         dragon_equip = {
             slot: item
@@ -147,7 +150,8 @@ class Character(FieldObject):
             if slot >= -1200 and slot < -1100
         }
 
-        for inv in [eqp_normal, stickers, inv_equip, dragon_equip, mechanic_equip]:
+        for inv in [eqp_normal, stickers, inv_equip, dragon_equip,
+                    mechanic_equip]:
             for slot, item in inv.items():
                 if not item:
                     continue
@@ -168,7 +172,9 @@ class Character(FieldObject):
             skill.encode(packet)
 
             if False:
-                packet.encode_int(skill.mastery_level)  # is skill needed for mastery
+                packet.encode_int(
+                    skill.mastery_level
+                )  # is skill needed for mastery
 
         packet.encode_short(0)
 
@@ -212,7 +218,7 @@ class Character(FieldObject):
         packet.encode_byte(0)
         packet.encode_int(self.stats.hair)
 
-        inventory = self.inventories.get(InventoryType.EQUIP)
+        inventory: Inventory = self.inventories.get(InventoryType.EQUIP)
         equipped = {}
 
         for index, item in inventory:
@@ -235,7 +241,9 @@ class Character(FieldObject):
 
             packet.encode_byte(0xFF)
 
-        packet.encode_int(0 if not equipped.get(-111) else equipped[-111].item_id)
+        packet.encode_int(
+            0 if not equipped.get(-111) else equipped[-111].item_id
+        )
 
         # for pet_id in self.pet_ids:
         for pet_id in range(3):
