@@ -4,12 +4,30 @@ Maplestory emulator written in Python
 
 ## Requirements
 
-- Postgresql (only tested with 11)
+- Postgresql
 - Python 3.10+
-- asyncpg
-- pycryptodomex
+- pycryptodome>=3.14.1
+- asyncpg>=0.25.0
+- attrs>=21.4.0
+- more-itertools>=8.12.0
+- jinja2>=3.1.1
+- fastapi>=0.75.1
+- uvicorn>=0.17.6
+- pyyaml>=6.0
+
+## Optional
+
+- itsdangerous
+- pydantic
+- loguru
+- uvloop
 
 ## To-Do
+
+- Multi-Version Compat
+
+  - Template out packet handlers, opcodes, game objects, and client to have drop-in's per version
+  - Map objects to relational tables for database generation
 
 - Inventory Operations
 
