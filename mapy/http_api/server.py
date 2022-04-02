@@ -1,98 +1,41 @@
-import importlib
+from fastapi import FastAPI, Depends
+from starlette.concurrency import run_in_threadpool
+from uvicorn import run
 
-from aiohttp import web
-from aiohttp.web import RouteDef, RouteTableDef, json_response
-from mapy import log
-
-
-class Base(RouteTableDef):
-
-    def __init_subclass__(cls):
-        cls._handlers = []
-        for k, v in cls.__dict__.items():
-            if k.startswith("_"):
-                continue
-            cls._handlers.append(v)
-
-    def __new__(cls, http_serv):
-        new_cls = super().__new__(cls)
-        return new_cls
-
-    def __init__(self):
-        super().__init__()
-        for handler in self._handlers:
-            method = handler._method
-            path = handler._path
-            kwargs = handler._kwargs
-            self._items.append(
-                RouteDef(method, path, getattr(self, handler.__name__), kwargs))
+from .. import log
 
 
-def route(method, path, **kwargs):
-
-    def wrap(handler):
-        handler._method = method
-        handler._path = path
-        handler._kwargs = kwargs
-        return handler
-
-    return wrap
-
-
-class Routes(Base):
-
-    def __init__(self, http_serv):
-        self._http = http_serv
-        self._server = http_serv.server
-        super().__init__()
-
-    @route("GET", "/")
-    async def get_status(self, request):
-        resp = {
-            "uptime": self._server.uptime,
-            "population": self._server.population,
-            "login_server": {
-                "alive": self._server.login.alive,
-                "port": self._server.login.port,
-                "population": self._server.login.population,
-            },
-            "game_servers": {
-                world.name: {
-                    i: {
-                        "alive": channel.alive,
-                        "port": channel.port,
-                        "population": channel.population,
-                    } for i, channel in enumerate(world.channels, 1)
-                } for world in self._server.worlds.values()
-            },
+async def statistics():
+    return {
+        "uptime": 0,
+        "population": 0,
+        "login_server": {
+            "alive": 0,
+            "port": 0,
+            "population": 0,
+        },
+        "game_servers": {
+            "Scania": {
+                0: {
+                    "alive": 0,
+                    "port": 0,
+                    "population": 0,
+                }
+            }
         }
+    }
 
-        return json_response(resp)
+
+wsgi_app = FastAPI(title="MaPy Web API", description="Web API")
 
 
-class HTTPServer(web.Application):
+@wsgi_app.get("/status", status_code=200)
+async def status(stats: dict = Depends(statistics)):
+    return stats
 
-    def __init__(self, server_core, port=None, loop=None):
-        self._name = "HTTP API"
-        self._server = server_core
-        self._loop = server_core._loop
-        self._port = port
-        self._routes = None
 
-        super().__init__(loop=self._loop)
+async def app(server):
 
-        self.router.add_routes(Routes(self))
+    wsgi_app.dependency_overrides[statistics] = server.statistics
 
-    def run(self):
-        runner = web.AppRunner(self)
-        self.loop.run_until_complete(runner.setup())
-        site = web.TCPSite(runner, port=self._port)
-        self.loop.run_until_complete(site.start())
-        self.log(f"Listening on port <lr>{self._port}</lr>", "info")
-
-    @property
-    def server(self):
-        return self._server
-
-    def log(self, message, level=None):
-        getattr(log, level or "debug")(f"{self._name} {message}")
+    await run_in_threadpool(lambda: run('mapy.http_api.server:wsgi_app'))

@@ -5,14 +5,18 @@ from typing import Union
 
 from asyncpg import PostgresError, create_pool
 from asyncpg.exceptions import InterfaceError
-from mapy import log
-from mapy.character import Account as Account_
-from mapy.character import Character, CharacterEntry, FuncKey, SkillEntry
-from mapy.field import Field as field
-from mapy.field import Foothold, Mob, Npc, Portal
-from mapy.game import ItemSlotEquip, SkillLevelData
-from mapy.game import item as Item  # ItemSlotBundle,
-from mapy.utils import get
+from .. import log
+from ..character.account import Account as Account_
+from ..character.character import Character
+from ..character.character_entry import CharacterEntry
+from ..character.func_key import FuncKey
+from ..character.skill_entry import SkillEntry
+from ..field.field import Field as field
+from ..field.field_object import Foothold, Mob, Npc, Portal
+from ..game.item import ItemSlotEquip
+from ..game.skill import SkillLevelData
+from ..game import item as Item  # ItemSlotBundle,
+from ..utils import get
 
 from .schema import (
     Column,
@@ -120,6 +124,9 @@ class DatabaseClient:
     async def execute_query(self, query, *args):
         result = []
 
+        if not self.pool:
+            return None
+
         async with self.pool.acquire() as conn:
             stmt = await conn.prepare(query)
             records = await stmt.fetch(*args)
@@ -132,6 +139,9 @@ class DatabaseClient:
     async def execute_transaction(self, query, *query_args):
         result = []
         try:
+            if not self.pool:
+                return None
+            
             async with self.pool.acquire() as conn:
                 stmt = await conn.prepare(query)
 
@@ -157,7 +167,7 @@ class DatabaseClient:
     ) -> Table:
         return await Table(self, name).create(columns, primaries=primaries)
 
-    def table(self, name, *, schema: Union[str, Schema] = None) -> Table:
+    def table(self, name, *, schema: Union[str, Schema] | None = None) -> Table:
         return Table(name, self)
 
     def query(self, *tables):

@@ -1,14 +1,14 @@
 import signal
-from asyncio import get_event_loop
+from asyncio import get_event_loop, sleep
 from configparser import ConfigParser
 from time import time
 
-from mapy import log
-from mapy.common.constants import CHANNEL_COUNT, GAME_PORT
-from mapy.common.enum import Worlds
-from mapy.db import DatabaseClient
-from mapy.http_api import HTTPServer
-from mapy.utils import wakeup
+from .. import log
+from ..common.constants import CHANNEL_COUNT, GAME_PORT
+from ..common.enum import Worlds
+from ..db.db_client import DatabaseClient
+from ..http_api import server
+from ..utils import wakeup
 
 from .world import World
 from .wvs_game import WvsGame
@@ -16,8 +16,6 @@ from .wvs_login import WvsLogin
 
 
 class WvsCenter:
-    _name = "Server Core"
-
     """Server connection listener for incoming client socket connections
 
     Attributes
@@ -36,8 +34,8 @@ class WvsCenter:
     """
 
     def __init__(self):
+        self._name = "Server Core"
         self._loop = get_event_loop()
-        self._http_api = HTTPServer(self, port=54545)
         self._clients = []
         self._pending_logins = []
         self._login = None
@@ -87,7 +85,7 @@ class WvsCenter:
         self._config.add_section("worlds")
 
         use_worlds = input("Setup worlds? (y/n) [Defaults will be used otherwise] ")
-        if use_worlds.lower() in ["y", "yes"]:
+        if use_worlds.lower() in [ "y", "yes"]:
             world_num = int(input("Number of worlds: [Max 20] "))
             for i in range(world_num):
                 name = Worlds(i).name
@@ -114,8 +112,7 @@ class WvsCenter:
 
     @classmethod
     def run(cls):
-        self = WvsCenter()
-        self._http_api.run()
+        self = cls()
         loop = self._loop
 
         try:
@@ -135,7 +132,7 @@ class WvsCenter:
 
         except KeyboardInterrupt:
             self.log(f"Received signal to terminate event loop", "warning")
-            loop.run_until_complete(self.data.stop())
+            # loop.run_until_complete(self.data.stop())
 
         finally:
             future.remove_done_callback(stop_loop_on_completion)
@@ -145,9 +142,10 @@ class WvsCenter:
     async def start(self):
         self._start_time = int(time())
         self.log("Initializing Server", "debug")
+        get_event_loop().create_task(server.app(self))
 
-        self.data = DatabaseClient(loop=self._loop, **self._config["database"])
-        await self.data.start()
+        # self.data = DatabaseClient(loop=self._loop, **self._config["database"])
+        # await self.data.start()
 
         channel_port = GAME_PORT
         self.login = await WvsLogin.run(self)
@@ -167,7 +165,30 @@ class WvsCenter:
             self.worlds[world_id] = world
             self.login.add_world(world)
 
-        await wakeup()
+        while self._loop.is_running():
+            await sleep(60.0)
+
+    async def statistics(self):
+        return {
+            "uptime": self.uptime,
+            "population": self.population,
+            "login_server": {
+                "alive": self.login.alive if self.login else 0,
+                "port": self.login.port if self.login else 0,
+                "population": self.login.population if self.login else 0,
+            },
+            "game_servers": {
+                world.name: {
+                    i: {
+                        "alive": channel.alive,
+                        "port": channel.port,
+                        "population": channel.population,
+                    }
+                    for i, channel in enumerate(world.channels, 1)
+                }
+                for world in self.worlds.values()
+            },
+        }
 
     @property
     def uptime(self):
@@ -175,4 +196,9 @@ class WvsCenter:
 
     @property
     def population(self):
-        return len(self._clients) + self.login.population
+        if not self.login:
+            login_pop = 0
+        else:
+            login_pop = self.login.population
+
+        return len(self._clients) + login_pop

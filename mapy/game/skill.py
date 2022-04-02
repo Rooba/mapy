@@ -1,39 +1,38 @@
-from dataclasses import dataclass, field
-from typing import List
-
-from mapy.common import WildcardData
+from attrs import define, field
 
 
 class Skill:
+
     def __init__(self, id):
         self._id = id
         self._skill_level_data = []
 
 
 class SkillLevel:
+
     def __init__(self, **kwargs):
         for key, value in kwargs.items():
             setattr(self, key, value)
 
 
-@dataclass
-class SkillLevelData(WildcardData):
-    flags: List = field(default=list)
+@define
+class SkillLevelData(object):
+    flags: list[int] = field(factory=list)
     weapon: int = 0
     sub_weapon: int = 0
     max_level: int = 0
     base_max_level: int = 0
-    skill_type: List = field(default=list)
-    element: str = ""
-    mob_count: str = ""
-    hit_count: str = ""
-    buff_time: str = ""
-    mp_cost: str = ""
-    hp_cost: str = ""
-    damage: str = ""
-    fixed_damage: str = ""
-    critical_damage: str = ""
-    mastery: str = ""
+    skill_type: list = field(factory=list)
+    element: str = field(factory=str)
+    mob_count: str = field(factory=str)
+    hit_count: str = field(factory=str)
+    buff_time: str = field(factory=str)
+    mp_cost: str = field(factory=str)
+    hp_cost: str = field(factory=str)
+    damage: str = field(factory=str)
+    fixed_damage: str = field(factory=str)
+    critical_damage: str = field(factory=str)
+    mastery: str = field(factory=str)
 
     def __post_init__(self):
         self._levels = {}

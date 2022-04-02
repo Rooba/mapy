@@ -1,9 +1,9 @@
 from asyncio import Event, get_event_loop, get_running_loop, run_coroutine_threadsafe
 from socket import AF_INET, IPPROTO_TCP, SOCK_STREAM, TCP_NODELAY, socket
 
-from mapy.client.client_base import ClientSocket
-from mapy.net.packet import PacketHandler
-from mapy import log
+from ..client.client_base import ClientSocket
+from ..net.packet import PacketHandler
+from .. import log
 
 
 class Dispatcher:
@@ -44,6 +44,7 @@ class ServerBase:
     """Server base for center, channel, and login servers"""
 
     def __init__(self, parent, port):
+        self._name = None
         self._loop = get_event_loop()
         self._parent = parent
         self._port = port
@@ -55,9 +56,9 @@ class ServerBase:
         self._dispatcher = Dispatcher(self)
 
         self._serv_sock = socket(AF_INET, SOCK_STREAM)
-        self._serv_sock.setblocking(0)
+        self._serv_sock.setblocking(False)
         self._serv_sock.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
-        self._serv_sock.bind(("127.0.0.1", self._port))
+        self._serv_sock.bind(( "127.0.0.1", self._port ))
         self._serv_sock.listen(0)
 
         self.add_packet_handlers()
@@ -114,7 +115,7 @@ class ServerBase:
 
         while self._alive.is_set():
             client_sock, _ = await self._loop.sock_accept(self._serv_sock)
-            client_sock.setblocking(0)
+            client_sock.setblocking(False)
             client_sock.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
             self._loop.create_task(self.on_client_accepted(client_sock))
 

@@ -1,4 +1,7 @@
 from .client_base import ClientBase
+from typing import Type
+
+PendingLogin = Type["PendingLogin"]
 
 
 class WvsLoginClient(ClientBase):
@@ -34,6 +37,10 @@ class WvsLoginClient(ClientBase):
         return resp
 
     async def load_avatars(self, world_id=None):
+        if not self.account:
+            self.avatars = []
+            return
+
         self.avatars = await (
             self.data.account(id=self.account.id).get_entries(world_id=world_id)
         )

@@ -1,41 +1,22 @@
-from dataclasses import dataclass
+# from dataclasses import dataclass
+from attrs import define
+import attr
 
-from mapy.common import WildcardData
-from mapy.utils import TagPoint
+from ..utils import TagPoint
+from .field import Field
 
 from .move_path import MovePath
 
 
-class FieldObject(WildcardData):
-
-    def __init__(self):
-        self._obj_id = -1
-        self._position = MovePath()
-        self._field = None
-
-    @property
-    def obj_id(self):
-        return self._obj_id
-
-    @obj_id.setter
-    def obj_id(self, value):
-        self._obj_id = value
-
-    @property
-    def position(self):
-        return self._position
-
-    @property
-    def field(self):
-        return self._field
-
-    @field.setter
-    def field(self, value):
-        self._field = value
+@define
+class FieldObject(object):
+    _obj_id: int = -1
+    _position: MovePath = MovePath()
+    _field: Field | None = None
 
 
-@dataclass
-class Foothold(WildcardData):
+@define
+class Foothold(object):
     id: int = 0
     prev: int = 0
     next: int = 0
@@ -56,15 +37,15 @@ class Foothold(WildcardData):
         return 0
 
 
-@dataclass
-class Portal(WildcardData):
-    id: int = 0
-    name: str = ""
-    type: int = 0
-    destination: int = 0
-    destination_label: str = ""
-    x: int = 0
-    y: int = 0
+@define
+class Portal(object):
+    id: int = int()
+    name: str = str()
+    type: int = int()
+    destination: int = int()
+    destination_label: str = str()
+    x: int = int()
+    y: int = int()
 
     def __post_init__(self):
         self.point = TagPoint(self.x, self.y)
@@ -73,7 +54,7 @@ class Portal(WildcardData):
         return f"{id} @ {self.point} -> {self.destination}"
 
 
-@dataclass
+@define
 class Life(FieldObject):
     life_id: int = 0
     life_type: str = ""
@@ -83,12 +64,12 @@ class Life(FieldObject):
     cy: int = 0
     f: int = 0
     hide: int = 0
-    rx0: int = 0    # min click position
-    rx1: int = 0    # max click position
+    rx0: int = 0  # min click position
+    rx1: int = 0  # max click position
     mob_time: int = 0
 
 
-@dataclass
+@define
 class Mob(Life):
     mob_id: int = 0
     hp: int = 0
@@ -113,7 +94,7 @@ class Mob(Life):
         pass
 
     def encode_init(self, packet):
-        packet.encode_int(self.obj_id)
+        packet.encode_int(self._obj_id)
         packet.encode_byte(5)
         packet.encode_int(self.life_id)
 
@@ -134,7 +115,7 @@ class Mob(Life):
         packet.encode_int(0)
 
 
-@dataclass
+@define
 class Npc(Life):
 
     def __post_init__(self):

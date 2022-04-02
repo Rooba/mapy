@@ -2,10 +2,11 @@ from .foothold_manager import FootholdManager
 from .portal_manager import PortalManager
 from .pool import MobPool, NpcPool, UserPool
 
-from mapy.utils.cpacket import CPacket
+from ..utils.cpacket import CPacket
 
 
 class Field:
+
     def __init__(self, map_id):
         self.map_id = map_id
         # self.characters = []
@@ -56,7 +57,12 @@ class Field:
 
     async def swap_mob_controller(self, client, mob):
         if mob.controller:
-            controller = next(filter(lambda c: c.character.id == mob.controller), None)
+            controller = next(
+                filter(
+                    lambda c: c.character.id == mob.controller, ()
+                ),  # FIXME: IDRCC WHERE WE'RE GRABBIN THIS SHIT ITS SOMEWHERE IN THERE
+                None
+            )
             if controller:
                 await controller.send_packet(CPacket.mob_change_controller(mob, 0))
 

@@ -1,6 +1,6 @@
 from itertools import zip_longest, chain
 from more_itertools import partition
-from typing import Any
+from typing import Any, Callable
 
 from .types import (
     ArraySQL,
@@ -20,10 +20,10 @@ def default_tmpl(c, o, v):
 
 
 class SQLOperator:
-    def __init__(self, sql_oper: str, py_oper: str, str_tmpl: str = None):
+    def __init__(self, sql_oper: str | None, py_oper: str | None, str_tmpl: str | Any = None):
         self.__sql_oper = sql_oper
         self.__py_oper = py_oper
-        self.__str_tmpl = default_tmpl if not str_tmpl else str_tmpl
+        self.__str_tmpl: Any[Any,] = default_tmpl if not str_tmpl else str_tmpl
 
     def __str__(self):
         return self.__sql_oper
@@ -33,9 +33,11 @@ class SQLOperator:
 
     def format(self, column=None, *, value=0, min_value=0, max_value=0):
         if value and not min_value and not max_value:
-            return self.__str_tmpl(column, self.__sql_oper, value)
+            if callable(self.__str_tmpl):
+                return self.__str_tmpl(column, self.__sql_oper, value)
         elif min_value and max_value:
-            return self.__str_tmpl(column, self.__sql_oper, min_value, max_value)
+            if callable(self.__str_tmpl):
+                return self.__str_tmpl(column, self.__sql_oper, min_value, max_value)
 
     @classmethod
     def lt(cls):
@@ -107,12 +109,12 @@ class Column_:
 class SQLComparison:
     def __init__(
         self,
-        operator: str,
-        aggregate: str,
+        operator: str | SQLOperator,
+        aggregate: str | Any,
         column: Any,
-        value: int = None,
-        min_value: int = None,
-        max_value: int = None,
+        value: int | Any = None,
+        min_value: int | Any = None,
+        max_value: int | Any = None,
     ):
         self.operator = operator
         self.format = operator.format
@@ -328,15 +330,15 @@ class Column:
     async def set(self, value):
         if not self.table:
             return None
-        data = dict(self.table.current_filter)
+        data = dict(self.table.current_filter) # type: ignore
         data[self.full_name] = value
-        return await self.table.upsert(**data)
+        return await self.table.upsert(**data) # type: ignore
 
     async def get(self, **filters):
-        return await self.table.get(columns=self.name, **filters)
+        return await self.table.get(columns=self.name, **filters) # type: ignore
 
     async def get_first(self, **filters):
-        return await self.table.get_first(column=self.name, **filters)
+        return await self.table.get_first(column=self.name, **filters) # type: ignore
 
 
 class PrimaryKeyColumn(Column):
@@ -362,14 +364,14 @@ class IntColumn(Column):
         super().__init__(name, Integer(big=big, small=small), **kwargs)
 
     @staticmethod
-    def many(*cols: tuple[str, dict]):
+    def many(*cols: tuple[str, dict[Any, Any]]):
         """Return many IntColuumn's using a list of of arguments"""
         columns = []
         for col in cols:
             list_col = list(col)
             name = list_col[0]
             args = list_col[1:] if isinstance(list_col[1:], dict) else {}
-            columns.append(IntColumn(name, **args))
+            columns.append(IntColumn(name, *args))
 
 
 class BoolColumn(Column):
@@ -861,7 +863,7 @@ class Query:
                 self._group_by.append(col)
         return self
 
-    def order_by(self, *columns, asc: bool = None):
+    def order_by(self, *columns, asc: bool | None = None):
         if asc is False:
             sort = " DESC"
         if asc is True:
@@ -870,9 +872,9 @@ class Query:
             sort = ""
         for col in columns:
             if isinstance(col, Column):
-                self._order_by.append(f"{col.full_name}{sort}")
+                self._order_by.append(f"{col.full_name}{sort}") # type: ignore
             elif isinstance(col, str):
-                self._order_by.append(f"{col}{sort}")
+                self._order_by.append(f"{col}{sort}")  # type: ignore
         return self
 
     def limit(self, number=None):
@@ -929,7 +931,7 @@ class Query:
 
         if self._left_join:
             sql.append(
-                (f"LEFT JOIN {self._left_join} " f"USING({', '.join(self._using)}) ")
+                (f"LEFT JOIN {self._left_join} " f"USING({', '.join(self._using)}) ") # type: ignore
             )
 
         elif self._inner_join:
@@ -1071,13 +1073,13 @@ class Insert:
 
         # handle conflict if required
         if do_update:
-            const_str = ", ".join(self._primaries)
+            const_str = ", ".join(self._primaries) # type: ignore
             sql += f" ON CONFLICT ({const_str}) DO UPDATE SET "
             excluded = [f"{c} = excluded.{c}" for c in cols]
             sql += ", ".join(excluded)
 
         if do_update is False:
-            const_str = ", ".join(self._primaries)
+            const_str = ", ".join(self._primaries) # type: ignore
             sql += f" ON CONFLICT ({const_str}) DO NOTHING"
 
         # add the returning statement if specified
@@ -1154,10 +1156,10 @@ class Insert:
             )
 
         if values:
-            dict_values = dict(zip_longest(self._columns, values))
+            dict_values = dict(zip_longest(self._columns, values)) # type: ignore
             if None in dict_values:
                 raise SyntaxError(
-                    "Too many values given " f"({len(values)}/{len(self._columns)})"
+                    "Too many values given " f"({len(values)}/{len(self._columns)})" # type: ignore
                 )
 
         if dict_values:
@@ -1273,7 +1275,7 @@ class Update:
 
         # add conditions
         if self.conditions.where_conditions:
-            sql.append(cond_sql)
+            sql.append(cond_sql) # type: ignore
 
         # add the returning statement if specified
         if self._returning:
@@ -1324,10 +1326,10 @@ class Update:
             )
 
         if values:
-            dict_values = dict(zip_longest(self._columns, values))
+            dict_values = dict(zip_longest(self._columns, values)) # type: ignore
             if None in dict_values:
                 raise SyntaxError(
-                    "Too many values given " f"({len(values)}/{len(self._columns)})"
+                    "Too many values given " f"({len(values)}/{len(self._columns)})" # type: ignore
                 )
 
         if dict_values:

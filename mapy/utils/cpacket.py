@@ -1,15 +1,22 @@
-from mapy import constants
-from mapy.net import Packet, CSendOps
+from ..common import constants
+from ..net.packet import Packet
+from ..net.opcodes import CSendOps
+from typing import Type
+
+PendingLogin = Type["PendingLogin"]
 
 
 class CPacket:
+
     @staticmethod
-    def check_password_result(client=None, response=None):
+    def check_password_result(client: PendingLogin | None = None, response=None):
         packet = Packet(op_code=CSendOps.LP_CheckPasswordResult)
 
         if response != 0:
             packet.encode_int(response)
             packet.encode_short(0)
+
+        if not client:
             return packet
 
         packet.encode_byte(0)
@@ -319,6 +326,11 @@ class CPacket:
         packet.encode_buffer(move_path)
         return packet
 
+    @staticmethod
+    def effect_remote(src, a, skill_id, skill_level, b):
+        packet = Packet(op_code=CSendOps.LP_UserEffectRemote)
+        return packet
+
     # --------------------- Mob Pool ------------------- #
 
     @staticmethod
@@ -368,7 +380,7 @@ class CPacket:
         packet.encode_byte(msg_type)
         packet.encode_byte(type_)
 
-        if type_ in [4, 5]:
+        if type_ in [ 4, 5 ]:
             packet.encode_int(other_npc)
 
         packet.encode_string(msg)

@@ -20,7 +20,7 @@ class Schema(Meta):
     def __getattr__(self, name):
         if name not in ("_value_"):
             return getattr(self.value, name)
-        return super().__getattr__(name)
+        return super(type(Meta)).__getattr__(name)
 
     @classmethod
     def create(cls):
@@ -51,7 +51,7 @@ class Table(int, Meta):
 
     def __new__(cls, data_type, options=None):
         value = len(cls.__members__) + 1
-        enum_class = super().__new__(cls, value)
+        enum_class = super(type(cls)).__new__(cls, value)
 
         enum_class._value_ = value
         enum_class.data_type = data_type

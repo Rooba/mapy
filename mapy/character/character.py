@@ -1,20 +1,23 @@
-from mapy.common import abc
-from mapy.field import FieldObject
-from mapy.game import item as Item
-from mapy.utils.tools import Random, filter_out_to
-
+from typing import Any
+from ..common.enum import InventoryType
+from ..field.field_object import FieldObject
+from ..utils.tools import Random
 from .character_stats import CharacterStats
 from .func_key import FuncKeys
-from .inventory import Inventory, InventoryManager, InventoryType
+from .inventory import Inventory, InventoryManager
 from .modifiers import CharacterModifiers
+from ..client.wvs_game_client import WvsGameClient
 
 
 class Character(FieldObject):
 
-    def __init__(self, stats):
+    def __init__(self, stats: dict | None = None):
         super().__init__()
-        self._client = None
+        self._client: WvsGameClient | None = None
         self._data = None
+
+        if not stats:
+            stats = {}
 
         self.stats = CharacterStats(**stats)
         self.inventories: InventoryManager = InventoryManager(self)
@@ -23,8 +26,8 @@ class Character(FieldObject):
         self.skills = {}
         self.random = Random()
 
-        self.map_transfer = [0, 0, 0, 0, 0]
-        self.map_transfer_ex = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        self.map_transfer = [ 0, 0, 0, 0, 0 ]
+        self.map_transfer_ex = [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]
         self.monster_book_cover_id = 0
 
     @property
@@ -52,24 +55,24 @@ class Character(FieldObject):
         self._data = value
 
     @property
-    def equip_inventory(self) -> Inventory | None:
-        return self.inventories.get(1)
+    def equip_inventory(self) -> Inventory:
+        return self.inventories.get(1) or Inventory(1, 96)
 
     @property
-    def consume_inventory(self) -> Inventory | None:
-        return self.inventories.get(2)
+    def consume_inventory(self) -> Inventory:
+        return self.inventories.get(2) or Inventory(2, 96)
 
     @property
-    def install_inventory(self) -> Inventory | None:
-        return self.inventories.get(3)
+    def install_inventory(self) -> Inventory:
+        return self.inventories.get(3) or Inventory(3, 96)
 
     @property
-    def etc_inventory(self) -> Inventory | None:
-        return self.inventories.get(4)
+    def etc_inventory(self) -> Inventory:
+        return self.inventories.get(4) or Inventory(4, 96)
 
     @property
-    def cash_inventory(self) -> Inventory | None:
-        return self.inventories.get(5)
+    def cash_inventory(self) -> Inventory:
+        return self.inventories.get(5) or Inventory(5, 96)
 
     def encode_entry(self, packet):
         ranking = False
@@ -150,8 +153,7 @@ class Character(FieldObject):
             if slot >= -1200 and slot < -1100
         }
 
-        for inv in [eqp_normal, stickers, inv_equip, dragon_equip,
-                    mechanic_equip]:
+        for inv in [ eqp_normal, stickers, inv_equip, dragon_equip, mechanic_equip ]:
             for slot, item in inv.items():
                 if not item:
                     continue
@@ -172,9 +174,7 @@ class Character(FieldObject):
             skill.encode(packet)
 
             if False:
-                packet.encode_int(
-                    skill.mastery_level
-                )  # is skill needed for mastery
+                packet.encode_int(skill.mastery_level)  # is skill needed for mastery
 
         packet.encode_short(0)
 
@@ -221,9 +221,9 @@ class Character(FieldObject):
         inventory: Inventory = self.inventories.get(InventoryType.EQUIP)
         equipped = {}
 
-        for index, item in inventory:
+        for index in inventory.items:
             if index < 0:
-                equipped[index] = inventory[index]
+                equipped[index] = inventory.items[index]
 
         stickers, unseen = {}, {}
 
@@ -235,19 +235,20 @@ class Character(FieldObject):
                 new_index = index + 100 if index < -100 else index
                 stickers[new_index] = item
 
-        for inv in [stickers, unseen]:
+        for inv in [ stickers, unseen ]:
             for index, item in inv.items():
                 packet.encode_byte(index * -1).encode_int(item.item_id)
 
             packet.encode_byte(0xFF)
 
-        packet.encode_int(
-            0 if not equipped.get(-111) else equipped[-111].item_id
-        )
+        packet.encode_int(0 if not equipped.get(-111) else equipped[-111].item_id)
 
         # for pet_id in self.pet_ids:
         for pet_id in range(3):
             packet.encode_int(pet_id)
 
     async def send_packet(self, packet):
+        if not self._client:
+            raise ConnectionError
+
         await self._client.send_packet(packet)

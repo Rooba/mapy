@@ -1,11 +1,9 @@
 from asyncio import Lock, get_event_loop
 from random import randint
 
-from mapy import log
-from mapy.common.constants import LOCALE, SUB_VERSION, VERSION
-from mapy.net.crypto import (
-    MapleAes, MapleIV, decrypt_transform, encrypt_transform
-)
+from .. import log
+from ..common.constants import LOCALE, SUB_VERSION, VERSION
+from ..net.crypto import (MapleAes, MapleIV, decrypt_transform, encrypt_transform)
 from mapy.net.packet import Packet
 
 

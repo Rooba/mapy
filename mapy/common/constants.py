@@ -74,7 +74,7 @@ ANTIREPEAT_BUFFS = [
     2101003,
     1321000,
     1311007,
-    1311006,
+    1311006
 ]
 
 EVENT_VEHICLE_SKILLS = [
@@ -105,7 +105,7 @@ EVENT_VEHICLE_SKILLS = [
     1065,
     1069,
     1070,
-    1071,
+    1071
 ]
 
 

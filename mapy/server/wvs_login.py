@@ -1,9 +1,9 @@
 import asyncio
 from datetime import datetime
 
-from mapy.client import WvsLoginClient
-from mapy.character import Character
-from mapy.common.constants import (
+from ..client.wvs_login_client import WvsLoginClient
+from ..character.character import Character
+from ..common.constants import (
     AUTO_LOGIN,
     AUTO_REGISTER,
     LOGIN_PORT,
@@ -13,13 +13,14 @@ from mapy.common.constants import (
     REQUIRE_STAFF_IP,
     get_job_from_creation,
 )
-from mapy.net import Packet, CRecvOps
-from mapy.net.packet import packet_handler
-from mapy.server.server_base import ServerBase
-from mapy.utils.cpacket import CPacket
+from ..net.packet import Packet, packet_handler
+from ..net.opcodes import CRecvOps
+from .server_base import ServerBase
+from ..utils.cpacket import CPacket
 
 
 class PendingLogin:
+
     def __init__(self, character, account, requested):
         self.character = character
         self.char_id = character.id
@@ -29,10 +30,10 @@ class PendingLogin:
 
 
 class WvsLogin(ServerBase):
-    _name = "Login Server"
 
     def __init__(self, parent):
         super().__init__(parent, LOGIN_PORT)
+        self._name = "Login Server"
         self._worlds = []
         self._auto_register = AUTO_REGISTER
         self._request_pin = REQUEST_PIN
@@ -129,17 +130,19 @@ class WvsLogin(ServerBase):
         await client.send_packet(CPacket.start_view_all_characters(client.avatars))
 
         for world in self._worlds:
-            await client.send_packet(CPacket.view_all_characters(world, client.avatars))
+            await client.send_packet(
+                CPacket.view_all_characters(world, client.avatars)
+            )
 
     @packet_handler(CRecvOps.CP_CreateNewCharacter)
     async def create_new_character(self, client, packet):
         character = Character()
-        character.name = packet.decode_string()
-        character.job = get_job_from_creation(packet.decode_int())
-        character.sub_job = packet.decode_short()
-        character.face = packet.decode_int()
-        character.hair = packet.decode_int() + packet.decode_int()
-        character.skin = packet.decode_int()
+        character.stats.name = packet.decode_string()
+        character.stats.job = get_job_from_creation(packet.decode_int())
+        character.stats.sub_job = packet.decode_short()
+        character.stats.face = packet.decode_int()
+        character.stats.hair = packet.decode_int() + packet.decode_int()
+        character.stats.skin = packet.decode_int()
 
         invs = character.inventories
 
@@ -153,26 +156,27 @@ class WvsLogin(ServerBase):
         invs.add(shoes, slot=-7)
         invs.add(weapon, slot=-11)
 
-        character.gender = packet.decode_byte()
+        character.stats.gender = packet.decode_byte()
 
-        character_id = await self.data.account(id=client.account.id).create_character(
-            character
-        )
+        character_id = await self.data.account(id=client.account.id
+                                              ).create_character(character)
 
         if character_id:
-            character.id = character_id
+            character.stats.id = character_id
             client.avatars.append(character)
 
             return await client.send_packet(
                 CPacket.create_new_character(character, False)
             )
 
-        return await client.send_packet(CPacket.create_new_character(character, True))
+        return await client.send_packet(
+            CPacket.create_new_character(character, True)
+        )
 
     @packet_handler(CRecvOps.CP_SelectCharacter)
     async def select_character(self, client, packet):
         uid = packet.decode_int()
-        character = next((c for c in client.avatars if c.id == uid), None)
+        character = next(( c for c in client.avatars if c.id == uid ), None)
         port = self.parent.worlds[client.world_id][client.channel_id].port
 
         self.parent._pending_logins.append(

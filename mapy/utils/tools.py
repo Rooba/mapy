@@ -63,7 +63,7 @@ def filter_out_to(func, iters, out):
 
 
 def first_or_default(list_, f):
-    return next((val for val in list_ if f(val)), None)
+    return next(( val for val in list_ if f(val) ), None)
 
 
 def fix_dict_keys(dict_):
@@ -84,8 +84,9 @@ def fix_dict_keys(dict_):
 
 
 def to_string(bytes_):
-    return " ".join(
-        [bytes_.hex()[i:i + 2].upper() for i in range(0, len(bytes_.hex()), 2)])
+    return " ".join([
+        bytes_.hex()[i:i + 2].upper() for i in range(0, len(bytes_.hex()), 2)
+    ])
 
 
 async def wakeup():
@@ -121,4 +122,4 @@ class Manager(list):
         return first_or_default(self, search)
 
     def first_or_default(self, func):
-        return next((val for val in self if func(val)), None)
+        return next(( val for val in self if func(val) ), None)

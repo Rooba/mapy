@@ -9,42 +9,11 @@ except ImportError:
 
 
 class MapleAes:
-    _user_key = bytearray(
-        [
-            0x13,
-            0x00,
-            0x00,
-            0x00,
-            0x08,
-            0x00,
-            0x00,
-            0x00,
-            0x06,
-            0x00,
-            0x00,
-            0x00,
-            0xB4,
-            0x00,
-            0x00,
-            0x00,
-            0x1B,
-            0x00,
-            0x00,
-            0x00,
-            0x0F,
-            0x00,
-            0x00,
-            0x00,
-            0x33,
-            0x00,
-            0x00,
-            0x00,
-            0x52,
-            0x00,
-            0x00,
-            0x00,
-        ]
-    )
+    _user_key = bytearray([
+        0x13, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0xB4,
+        0x00, 0x00, 0x00, 0x1B, 0x00, 0x00, 0x00, 0x0F, 0x00, 0x00, 0x00, 0x33, 0x00,
+        0x00, 0x00, 0x52, 0x00, 0x00, 0x00
+    ])
 
     @classmethod
     def transform(cls, buffer, iv):
@@ -101,7 +70,7 @@ class MapleAes:
     @staticmethod
     def get_header(data, iv, length, major_ver):
         first = -(major_ver + 1) ^ iv.hiword
-        second = (first + 2 ** 16) ^ length
+        second = (first + 2**16) ^ length
         data[0:2] = bytes([first & 0xFF, first >> 8 & 0xFF])
         data[2:4] = bytes([second & 0xFF, second >> 8 & 0xFF])
 

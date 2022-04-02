@@ -3,6 +3,7 @@ from mapy.common.enum import WorldFlag, Worlds
 
 
 class World:
+
     def __init__(self, id):
         self._world = Worlds(id)
         self._channels = []

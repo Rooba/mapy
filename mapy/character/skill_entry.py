@@ -1,22 +1,16 @@
-from dataclasses import dataclass, field
-from typing import List
+from attrs import define, field
 
-from mapy.common import WildcardData
-from mapy.common.constants import PERMANENT
+from ..common.constants import PERMANENT
 
 
-def default_level_data():
-    return []
-
-
-@dataclass
-class SkillEntry(WildcardData):
-    id: int = 0
-    level: int = 0
-    mastery_level: int = 0
-    max_level: int = 0
-    expiration: int = field(default=PERMANENT)
-    level_data: List = field(default_factory=default_level_data)
+@define(kw_only=True)
+class SkillEntry(object):
+    id: int = int()
+    level: int = int()
+    mastery_level: int = int()
+    max_level: int = int()
+    expiration: int = PERMANENT
+    level_data: list = field(factory=lambda: list())
 
     def encode(self, packet):
         packet.encode_int(self.id)

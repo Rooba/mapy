@@ -1,4 +1,5 @@
 class ObjectPool:
+
     def __init__(self, field):
         self.field = field
         self.cache = {}
@@ -23,16 +24,17 @@ class ObjectPool:
         return self.cache.get(key, None)
 
     def __enumerator__(self):
-        return (obj for obj in self.cache.values())
+        return ( obj for obj in self.cache.values() )
 
     def __iter__(self):
-        return (obj for obj in self.cache.values())
+        return ( obj for obj in self.cache.values() )
 
     def __aiter__(self):
         return self.__iter__()
 
 
 class MobPool(ObjectPool):
+
     def __init__(self, field):
         super().__init__(field)
         self.spawns = []
@@ -65,6 +67,7 @@ class NpcPool(ObjectPool):
 
 
 class UserPool(ObjectPool):
+
     def add(self, client):
         super().add(client)
         client.character.field = self.field
@@ -74,4 +77,4 @@ class UserPool(ObjectPool):
         return [client.character for client in self]
 
     def __aiter__(self):
-        return [client for client in self]
+        return [ client for client in self ]

@@ -1,15 +1,14 @@
 from dataclasses import dataclass
 from enum import Enum
 
-import attr
-from mapy.common import WildcardData
+from attrs import define
 
 
 class ItemInventoryTypes(Enum):
     ItemSlotEquip = 0x1
 
 
-@attr.s(auto_attribs=True, init=True)
+@define
 class ItemSlotBase(object):
     """Base item class for all items
 
@@ -56,15 +55,15 @@ class ItemSlotBase(object):
         packet.encode_long(0)
 
 
-@dataclass
+@define
 class ItemSlotEquip(ItemSlotBase):
     req_job: list[int] | None = list()
     ruc: int = 0
     cuc: int = 0
 
-    str_: int = 0
+    _str: int = 0
     dex: int = 0
-    int_: int = 0
+    _int: int = 0
     luk: int = 0
     hp: int = 0
     mp: int = 0
@@ -108,9 +107,9 @@ class ItemSlotEquip(ItemSlotBase):
 
         packet.encode_byte(self.ruc)
         packet.encode_byte(self.cuc)
-        packet.encode_short(self.str_)
+        packet.encode_short(self._str)
         packet.encode_short(self.dex)
-        packet.encode_short(self.int_)
+        packet.encode_short(self._int)
         packet.encode_short(self.luk)
         packet.encode_short(self.hp)
         packet.encode_short(self.mp)
@@ -149,7 +148,7 @@ class ItemSlotEquip(ItemSlotBase):
         packet.encode_int(0)
 
 
-@dataclass
+@define
 class ItemSlotBundle(ItemSlotBase):
     number: int = 1
     attribute: int = 0

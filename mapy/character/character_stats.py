@@ -1,55 +1,50 @@
-from dataclasses import dataclass, field
-from typing import List
-from attrs import define
-import attr
-
-from mapy.common import WildcardData
+from attrs import define, field
 
 
 def default_extend_sp():
-    return [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    return [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]
 
 
 def default_pet_locker():
-    return [0, 0, 0]
+    return [ 0, 0, 0 ]
 
 
-@define(kw_only=True, init=True, auto_attribs=True)
+@define
 class CharacterStats(object):
     id: int = 0
-    name: str = "Maple Char"
+    name: str = ""
     world_id: int = 0
 
     gender: int = 0
     skin: int = 0
-    face: int = 20001
-    hair: int = 30003
-    level: int = 10
+    face: int = field(default=20001)
+    hair: int = field(default=30003)
+    level: int = field(default=1)
     job: int = 0
 
-    str_: int = 10
-    dex: int = 10
-    int_: int = 10
-    luk: int = 10
-    hp: int = 50
-    m_hp: int = 50
-    mp: int = 5
-    m_mp: int = 5
+    str_: int = field(default=4)
+    dex: int = field(default=4)
+    int_: int = field(default=4)
+    luk: int = field(default=4)
+    hp: int = field(default=50)
+    m_hp: int = field(default=50)
+    mp: int = field(default=5)
+    m_mp: int = field(default=5)
 
     ap: int = 0
     sp: int = 0
-    extend_sp: list = []
+    extend_sp: list[int] = field(factory=default_extend_sp)
 
     exp: int = 0
     money: int = 0
     fame: int = 0
     temp_exp: int = 0
 
-    field_id: int = 100000000
+    field_id: int = field(default=100000000)
     portal: int = 0
     play_time: int = 0
     sub_job: int = 0
-    pet_locker: list = []
+    pet_locker: list[int] = field(factory=default_pet_locker)
 
     def encode(self, packet) -> None:
         packet.encode_int(self.id)

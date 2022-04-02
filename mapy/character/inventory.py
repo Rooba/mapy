@@ -1,7 +1,7 @@
 from typing import Any
-from mapy.common import Inventory as _Inventory, InventoryType
+from ..common.abc import Inventory as _Inventory
+from ..common.enum import InventoryType
 from mapy.game import item as Item
-from .inventory import Inventory
 
 
 class InventoryManager:
@@ -12,25 +12,28 @@ class InventoryManager:
         self.inventories: dict[int, Inventory] = {}
 
         for i in range(1, 6):
-            self.inventories[i] = Inventory(InventoryType(i), 96)
+            self.inventories[i] = Inventory(InventoryType(i), 28)
 
     def __iter__(self):
-        return ((inv_type, inv.items)
+        return (( inv_type, inv.items )
                 for inv_type, inv in self.inventories.items())
 
     @property
     def updates(self):
         return self.tracker.inventory_changes
 
-    def get(self, inventory_type):
+    def get(self, inventory_type: int | InventoryType) -> "Inventory":
 
         if isinstance(inventory_type, InventoryType):
             return self.inventories[inventory_type.value]
 
         elif isinstance(inventory_type, int):
-            return self.inventories.get(inventory_type)
+            return self.inventories[inventory_type]
 
-        return None
+        else:
+            raise ValueError(
+                "Parameter 'inventory_type' must be of type InventoryType or int"
+            )
 
     def add(self, item: Item.ItemSlotBase, slot=0):
         item_type = int(item.item_id / 1000000)
@@ -107,7 +110,7 @@ class Inventory(_Inventory):
         return self.items.get(key)
 
     def __iter__(self):
-        return (item for item in self.items)
+        return ( item for item in self.items )
 
     def get_free_slot(self):
         for i in range(1, self._slots + 1):
@@ -126,7 +129,7 @@ class Inventory(_Inventory):
 
             if free_slot:
                 self.items[free_slot] = item
-                items = (free_slot, item)
+                items = ( free_slot, item )
 
         elif isinstance(item, Item.ItemSlotBundle):
             # Get Slot with same item_id and not max bundle
@@ -134,7 +137,7 @@ class Inventory(_Inventory):
             pass
 
         if not items:
-            return (0, None)
+            return ( 0, None )
 
         return items
 

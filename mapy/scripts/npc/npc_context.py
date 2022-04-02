@@ -15,6 +15,7 @@ class Message:
 
 
 class NpcContext(ContextBase):
+
     @property
     def npc_id(self):
         return self._script.npc_id
@@ -30,6 +31,7 @@ class NpcContext(ContextBase):
         await self._script.send_message(0, action)
 
     async def ask_yes_no(self, msg):
+
         def action(packet):
             packet.encode_string(msg)
 

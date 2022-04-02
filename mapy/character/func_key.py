@@ -8,6 +8,7 @@ class FuncKey:
 
 
 class FuncKeys:
+
     def __init__(self, character):
         self._parent = character
         self._func_keys = {}

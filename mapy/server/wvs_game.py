@@ -1,15 +1,17 @@
-from mapy.client import WvsGameClient
-from mapy.common import Worlds
-from mapy.common.constants import ANTIREPEAT_BUFFS, is_event_vehicle_skill
-from mapy.net import CRecvOps
-from mapy.net.packet import packet_handler
-from mapy.scripts.npc import NpcScript
-from mapy.utils.cpacket import CPacket
+from ..client.wvs_game_client import WvsGameClient
+from ..common.enum import Worlds
+from ..common.constants import ANTIREPEAT_BUFFS, is_event_vehicle_skill
+from ..net.opcodes import CRecvOps
+from ..net.packet import packet_handler
+from ..scripts.npc.npc_script import NpcScript
+from ..utils.cpacket import CPacket
 
+from .wvs_login import PendingLogin
 from .server_base import ServerBase
 
 
 class WvsGame(ServerBase):
+
     def __init__(self, parent, port, world_id, channel_id):
         super().__init__(parent, port)
         self._name = f"Game Server[{world_id}][{channel_id}]"
@@ -64,6 +66,8 @@ class WvsGame(ServerBase):
         packet.decode_byte()
         packet.decode_long()  # Session ID
 
+        login_req: PendingLogin | None
+
         for x in self.parent._pending_logins:
             if x.character.id == uid:
                 login_req = x
@@ -73,7 +77,7 @@ class WvsGame(ServerBase):
             login_req = None
 
         if not login_req:
-            await client.disconnect()
+            return await client.disconnect()
 
         login_req.migrated = True
         login_req.character._client = client
@@ -160,7 +164,8 @@ class WvsGame(ServerBase):
 
         if type_ != type_expected:
             self.log(
-                f"User answered type: [{type_}], expected [{type_expected}]" "debug"
+                f"User answered type: [{type_}], expected [{type_expected}]"
+                "debug"
             )
             return
 

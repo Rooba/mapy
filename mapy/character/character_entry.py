@@ -1,9 +1,10 @@
-from mapy.common import InventoryType
+from ..common.enum import InventoryType
 from .character_stats import CharacterStats
 from .inventory import Inventory
 
 
 class CharacterEntry:
+
     def __init__(self, **stats):
         self._stats = CharacterStats(**stats)
         self._equip = Inventory(InventoryType.EQUIP, 96)
@@ -57,7 +58,7 @@ class CharacterEntry:
                 new_index = index + 100 if index < -100 else index
                 stickers[new_index] = item
 
-        for inv in [stickers, eqp_normal]:
+        for inv in [ stickers, eqp_normal ]:
             for slot, item in inv.items():
                 packet.encode_byte(abs(slot))
                 packet.encode_int(item.item_id)

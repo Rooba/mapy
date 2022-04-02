@@ -25,7 +25,7 @@ class SQLType:
             if cls is None:
                 raise RuntimeError(f'Could not locate "{meta}".')
 
-        self = cls.__new__(cls)
+        self = cls.__new__(type(cls))
         self.__dict__.update(data)
         return self
 
