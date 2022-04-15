@@ -12,3 +12,4 @@
 **/config.*
 **/test*.*
 **/http_db_client.py
+**/tests
