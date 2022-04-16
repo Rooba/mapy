@@ -1,13 +1,12 @@
-from ..common import constants
-from ..net.packet import Packet
-from ..net.opcodes import CSendOps
+from mapy.common import constants
+from mapy.net.packet import Packet
+from mapy.net.opcodes import CSendOps
 from typing import Type
 
 PendingLogin = Type["PendingLogin"]
 
 
 class CPacket:
-
     @staticmethod
     def check_password_result(client: PendingLogin | None = None, response=None):
         packet = Packet(op_code=CSendOps.LP_CheckPasswordResult)
@@ -380,7 +379,7 @@ class CPacket:
         packet.encode_byte(msg_type)
         packet.encode_byte(type_)
 
-        if type_ in [ 4, 5 ]:
+        if type_ in [4, 5]:
             packet.encode_int(other_npc)
 
         packet.encode_string(msg)

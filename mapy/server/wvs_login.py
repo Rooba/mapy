@@ -16,11 +16,10 @@ from ..common.constants import (
 from ..net.packet import Packet, packet_handler
 from ..net.opcodes import CRecvOps
 from .server_base import ServerBase
-from ..utils.cpacket import CPacket
+from ..cpacket import CPacket
 
 
 class PendingLogin:
-
     def __init__(self, character, account, requested):
         self.character = character
         self.char_id = character.id
@@ -30,7 +29,6 @@ class PendingLogin:
 
 
 class WvsLogin(ServerBase):
-
     def __init__(self, parent):
         super().__init__(parent, LOGIN_PORT)
         self._name = "Login Server"
@@ -130,9 +128,7 @@ class WvsLogin(ServerBase):
         await client.send_packet(CPacket.start_view_all_characters(client.avatars))
 
         for world in self._worlds:
-            await client.send_packet(
-                CPacket.view_all_characters(world, client.avatars)
-            )
+            await client.send_packet(CPacket.view_all_characters(world, client.avatars))
 
     @packet_handler(CRecvOps.CP_CreateNewCharacter)
     async def create_new_character(self, client, packet):
@@ -158,8 +154,9 @@ class WvsLogin(ServerBase):
 
         character.stats.gender = packet.decode_byte()
 
-        character_id = await self.data.account(id=client.account.id
-                                              ).create_character(character)
+        character_id = await self.data.account(id=client.account.id).create_character(
+            character
+        )
 
         if character_id:
             character.stats.id = character_id
@@ -169,14 +166,12 @@ class WvsLogin(ServerBase):
                 CPacket.create_new_character(character, False)
             )
 
-        return await client.send_packet(
-            CPacket.create_new_character(character, True)
-        )
+        return await client.send_packet(CPacket.create_new_character(character, True))
 
     @packet_handler(CRecvOps.CP_SelectCharacter)
     async def select_character(self, client, packet):
         uid = packet.decode_int()
-        character = next(( c for c in client.avatars if c.id == uid ), None)
+        character = next((c for c in client.avatars if c.id == uid), None)
         port = self.parent.worlds[client.world_id][client.channel_id].port
 
         self.parent._pending_logins.append(

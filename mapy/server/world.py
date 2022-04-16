@@ -1,5 +1,5 @@
-from mapy import constants
-from mapy.common.enum import WorldFlag, Worlds
+from ..common import constants
+from ..common.enum import WorldFlag, Worlds
 
 
 class World:

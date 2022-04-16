@@ -4,14 +4,13 @@ from ..common.constants import ANTIREPEAT_BUFFS, is_event_vehicle_skill
 from ..net.opcodes import CRecvOps
 from ..net.packet import packet_handler
 from ..scripts.npc.npc_script import NpcScript
-from ..utils.cpacket import CPacket
+from ..cpacket import CPacket
 
 from .wvs_login import PendingLogin
 from .server_base import ServerBase
 
 
 class WvsGame(ServerBase):
-
     def __init__(self, parent, port, world_id, channel_id):
         super().__init__(parent, port)
         self._name = f"Game Server[{world_id}][{channel_id}]"
@@ -164,8 +163,7 @@ class WvsGame(ServerBase):
 
         if type_ != type_expected:
             self.log(
-                f"User answered type: [{type_}], expected [{type_expected}]"
-                "debug"
+                f"User answered type: [{type_}], expected [{type_expected}]" "debug"
             )
             return
 

@@ -3,20 +3,20 @@ from io import BytesIO
 from struct import pack, unpack
 
 from .opcodes import CRecvOps
-from mapy.utils.tools import to_string
+from ..tools import to_string
 
 # Junk codes for colorizing incoming packets from custom client
 debug_codes = [
-    ( "r", ( "|", "|") ),
-    ( "lr", ( "|", "&") ),
-    ( "c", ( "~", "~") ),
-    ( "lc", ( "~", "&") ),
-    ( "y", ( "#", "#") ),
-    ( "ly", ( "#", "&") ),
-    ( "g", ( "^", "^") ),
-    ( "lg", ( "^", "&") ),
-    ( "m", ( "@", "@") ),
-    ( "lm", ( "@", "&") ),
+    ("r", ("|", "|")),
+    ("lr", ("|", "&")),
+    ("c", ("~", "~")),
+    ("lc", ("~", "&")),
+    ("y", ("#", "#")),
+    ("ly", ("#", "&")),
+    ("g", ("^", "^")),
+    ("lg", ("^", "&")),
+    ("m", ("@", "@")),
+    ("lm", ("@", "&")),
 ]
 
 
@@ -129,7 +129,7 @@ class Packet(ByteBuffer):
 
     def __init__(self, data=None, op_code=None, raw=False):
 
-        if data == None:
+        if not data:
             data = b""
 
         super().__init__(data)
@@ -166,7 +166,6 @@ class Packet(ByteBuffer):
 
 
 class PacketHandler:
-
     def __init__(self, name, callback, **kwargs):
         self.name = name
         self.callback = callback
@@ -174,7 +173,6 @@ class PacketHandler:
 
 
 def packet_handler(op_code=None):
-
     def wrap(func):
         return PacketHandler(func.__name__, func, op_code=op_code)
 

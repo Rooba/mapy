@@ -7,7 +7,6 @@ from mapy.scripts.npc.npc_context import NpcContext
 
 
 class NpcScript(ScriptBase):
-
     def __init__(self, npc_id, client, default=False):
         if default:
             script = f"scripts/npc/default.py"

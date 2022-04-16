@@ -1,18 +1,19 @@
-from itertools import zip_longest, chain
-from more_itertools import partition
-from typing import Any, Callable
+from itertools import chain, zip_longest
+from typing import Any
 
+from more_itertools import partition
+
+from .errors import QueryError, ResponseError, SchemaError
 from .types import (
     ArraySQL,
-    SQLType,
     Boolean,
     Datetime,
     Decimal,
     Integer,
     Interval,
+    SQLType,
     String,
 )
-from .errors import SchemaError, ResponseError, QueryError
 
 
 def default_tmpl(c, o, v):
@@ -20,10 +21,12 @@ def default_tmpl(c, o, v):
 
 
 class SQLOperator:
-    def __init__(self, sql_oper: str | None, py_oper: str | None, str_tmpl: str | Any = None):
+    def __init__(
+        self, sql_oper: str | None, py_oper: str | None, str_tmpl: str | Any = None
+    ):
         self.__sql_oper = sql_oper
         self.__py_oper = py_oper
-        self.__str_tmpl: Any[Any,] = default_tmpl if not str_tmpl else str_tmpl
+        self.__str_tmpl: Any[Any] = default_tmpl if not str_tmpl else str_tmpl
 
     def __str__(self):
         return self.__sql_oper
@@ -330,15 +333,15 @@ class Column:
     async def set(self, value):
         if not self.table:
             return None
-        data = dict(self.table.current_filter) # type: ignore
+        data = dict(self.table.current_filter)  # type: ignore
         data[self.full_name] = value
-        return await self.table.upsert(**data) # type: ignore
+        return await self.table.upsert(**data)  # type: ignore
 
     async def get(self, **filters):
-        return await self.table.get(columns=self.name, **filters) # type: ignore
+        return await self.table.get(columns=self.name, **filters)  # type: ignore
 
     async def get_first(self, **filters):
-        return await self.table.get_first(column=self.name, **filters) # type: ignore
+        return await self.table.get_first(column=self.name, **filters)  # type: ignore
 
 
 class PrimaryKeyColumn(Column):
@@ -485,7 +488,7 @@ class Schema:
         return self.name
 
     async def exists(self):
-        schemata_table = self.db.table("information_schema.schemata")
+        schemata_table = self.database.table("information_schema.schemata")
         query = schemata_table.query("schema_name")
         result = await query.where(schema_name=self.name).get_value()
         return bool(result)
@@ -494,7 +497,7 @@ class Schema:
         sql = "DROP SCHEMA $1"
         if cascade:
             sql += " CASCADE"
-        return await self.db.execute_transaction(sql, self.name)
+        return await self.database.execute_transaction(sql, self.name)
 
     def sql(self, skip_if_exists=True):
         if skip_if_exists:
@@ -505,7 +508,7 @@ class Schema:
 
     async def create(self, skip_if_exists=True):
         sql, value = self.sql(skip_if_exists)
-        await self.db.execute_transaction(sql, value)
+        await self.database.execute_transaction(sql, value)
         return self
 
 
@@ -651,7 +654,7 @@ class Table:
                 )
 
         sql += ")"
-        await self.db.execute_transaction(sql)
+        await self.database.execute_transaction(sql)
         if self.initial_data:
             await self.insert.rows(self.initial_data).commit(do_update=False)
         return self
@@ -659,13 +662,13 @@ class Table:
     async def exists(self):
         """Create table and return the object representing it."""
         sql = f"SELECT to_regclass('{self.full_name}')"
-        result = await self.db.execute_query(sql)
+        result = await self.database.execute_query(sql)
         return bool(list(result[0])[0])
 
     async def drop(self):
         """Drop table from database."""
         sql = "DROP TABLE $1"
-        return await self.db.execute_transaction(sql, (self.full_name,))
+        return await self.database.execute_transaction(sql, (self.full_name,))
 
     async def get_constraints(self):
         """Get column from table."""
@@ -872,7 +875,7 @@ class Query:
             sort = ""
         for col in columns:
             if isinstance(col, Column):
-                self._order_by.append(f"{col.full_name}{sort}") # type: ignore
+                self._order_by.append(f"{col.full_name}{sort}")  # type: ignore
             elif isinstance(col, str):
                 self._order_by.append(f"{col}{sort}")  # type: ignore
         return self
@@ -931,7 +934,9 @@ class Query:
 
         if self._left_join:
             sql.append(
-                (f"LEFT JOIN {self._left_join} " f"USING({', '.join(self._using)}) ") # type: ignore
+                (
+                    f"LEFT JOIN {self._left_join} " f"USING({', '.join(self._using)}) "
+                )  # type: ignore
             )
 
         elif self._inner_join:
@@ -1073,13 +1078,13 @@ class Insert:
 
         # handle conflict if required
         if do_update:
-            const_str = ", ".join(self._primaries) # type: ignore
+            const_str = ", ".join(self._primaries)  # type: ignore
             sql += f" ON CONFLICT ({const_str}) DO UPDATE SET "
             excluded = [f"{c} = excluded.{c}" for c in cols]
             sql += ", ".join(excluded)
 
         if do_update is False:
-            const_str = ", ".join(self._primaries) # type: ignore
+            const_str = ", ".join(self._primaries)  # type: ignore
             sql += f" ON CONFLICT ({const_str}) DO NOTHING"
 
         # add the returning statement if specified
@@ -1156,10 +1161,11 @@ class Insert:
             )
 
         if values:
-            dict_values = dict(zip_longest(self._columns, values)) # type: ignore
+            dict_values = dict(zip_longest(self._columns, values))  # type: ignore
             if None in dict_values:
                 raise SyntaxError(
-                    "Too many values given " f"({len(values)}/{len(self._columns)})" # type: ignore
+                    "Too many values given "
+                    f"({len(values)}/{len(self._columns)})"  # type: ignore
                 )
 
         if dict_values:
@@ -1275,7 +1281,7 @@ class Update:
 
         # add conditions
         if self.conditions.where_conditions:
-            sql.append(cond_sql) # type: ignore
+            sql.append(cond_sql)  # type: ignore
 
         # add the returning statement if specified
         if self._returning:
@@ -1326,10 +1332,11 @@ class Update:
             )
 
         if values:
-            dict_values = dict(zip_longest(self._columns, values)) # type: ignore
+            dict_values = dict(zip_longest(self._columns, values))  # type: ignore
             if None in dict_values:
                 raise SyntaxError(
-                    "Too many values given " f"({len(values)}/{len(self._columns)})" # type: ignore
+                    "Too many values given "
+                    f"({len(values)}/{len(self._columns)})"  # type: ignore
                 )
 
         if dict_values:

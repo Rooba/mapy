@@ -41,7 +41,7 @@ class InventoryType(Enum):
 
 class StatModifiers(int, Enum):
     encode: str
-    
+
     def __new__(cls, value, encode_type):
         obj = int.__new__(cls, value)
         obj._value_ = value

@@ -1,20 +1,18 @@
-from asyncio import Event, get_event_loop, get_running_loop, run_coroutine_threadsafe
+from asyncio import Event, get_event_loop
 from socket import AF_INET, IPPROTO_TCP, SOCK_STREAM, TCP_NODELAY, socket
 
 from ..client.client_base import ClientSocket
 from ..net.packet import PacketHandler
-from .. import log
+from ..logger import log
 
 
 class Dispatcher:
-
     def __init__(self, parent):
         self.parent = parent
 
     def push(self, client, packet):
         log.packet(
-            f"{self.parent.name} {packet.name} {client.ip} {packet.to_string()}",
-            "in"
+            f"{self.parent.name} {packet.name} {client.ip} {packet.to_string()}", "in"
         )
 
         try:
@@ -29,9 +27,7 @@ class Dispatcher:
                 raise AttributeError
 
         except AttributeError:
-            log.warning(
-                f"{self.parent.name} Unhandled event in : <w>{packet.name}</w>"
-            )
+            log.warning(f"{self.parent.name} Unhandled event in : <w>{packet.name}</w>")
 
         else:
             self.parent._loop.create_task(self._run_event(coro, client, packet))
@@ -58,7 +54,7 @@ class ServerBase:
         self._serv_sock = socket(AF_INET, SOCK_STREAM)
         self._serv_sock.setblocking(False)
         self._serv_sock.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
-        self._serv_sock.bind(( "127.0.0.1", self._port ))
+        self._serv_sock.bind(("127.0.0.1", self._port))
         self._serv_sock.listen(0)
 
         self.add_packet_handlers()
@@ -102,8 +98,10 @@ class ServerBase:
         for _, member in members:
             # Register all packet handlers for inheriting server
 
-            if (isinstance(member, PacketHandler)
-                    and member not in self._packet_handlers):
+            if (
+                isinstance(member, PacketHandler)
+                and member not in self._packet_handlers
+            ):
                 self._packet_handlers.append(member)
 
     async def wait_until_ready(self) -> bool:

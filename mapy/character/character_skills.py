@@ -1,5 +1,4 @@
 class CharacterSkills(dict):
-
     def __init__(self, parent):
         self._parent = parent
 
@@ -10,8 +9,7 @@ class CharacterSkills(dict):
             return False
 
         await self._parent.modify.stats(
-            hp=self._parent.stats.hp - 1,
-            mp=self._parent.stats.mp - 1,
+            hp=self._parent.stats.hp - 1, mp=self._parent.stats.mp - 1
         )
 
         # if skill.level_data.buff_time > 0:

@@ -1,10 +1,9 @@
 from ..common.enum import StatModifiers
 from ..common.constants import is_extend_sp_job
-from ..utils.cpacket import CPacket
+from ..cpacket import CPacket
 
 
 class StatModifier:
-
     def __init__(self, character_stats):
         self._modifiers = []
         self._stats = character_stats
@@ -39,12 +38,12 @@ class StatModifier:
                 else:
                     packet.encode_short(self._stats.sp)
             else:
-                getattr(packet, f"encode_{modifier.encode}"
-                       )(packet, getattr(self._stats, modifier.name.lower()))
+                getattr(packet, f"encode_{modifier.encode}")(
+                    packet, getattr(self._stats, modifier.name.lower())
+                )
 
 
 class CharacterModifiers:
-
     def __init__(self, character):
         self._parent = character
 

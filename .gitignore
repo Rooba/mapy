@@ -6,6 +6,7 @@
 **/__pycache__
 **/.DS_STORE
 **/.mypy_cache
+**/.venv
 
 **/notes.md
 **/.*
@@ -13,3 +14,4 @@
 **/test*.*
 **/http_db_client.py
 **/tests
+**/.style.yapf

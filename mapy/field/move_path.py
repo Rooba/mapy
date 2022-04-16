@@ -1,8 +1,7 @@
-from mapy.net.packet import ByteBuffer
+from ..net.packet import ByteBuffer
 
 
 class MovePath:
-
     def __init__(self, x=0, y=0, foothold=0, position=0):
         self.x = x
         self.y = y
@@ -27,23 +26,26 @@ class MovePath:
             if cmd == 0:
                 self.x = ipacket.decode_short()
                 self.y = ipacket.decode_short()
-                xwob = ipacket.decode_short()
-                ywob = ipacket.decode_short()
+                _ = ipacket.decode_short()  # xwob
+                _ = ipacket.decode_short()  # ywob
                 self.foothold = ipacket.decode_short()
-                xoff = ipacket.decode_short()
-                yoff = ipacket.decode_short()
+                _ = ipacket.decode_short()  # xoff
+                _ = ipacket.decode_short()  # yoff
                 self.stance = ipacket.decode_byte()
-                duration = ipacket.decode_short()
+                _ = ipacket.decode_short()  # duration
             elif cmd == 1:
-                xmod = ipacket.decode_short()
-                ymod = ipacket.decode_short()
+                _ = ipacket.decode_short()  # xmod
+                _ = ipacket.decode_short()  # ymod
                 self.stance = ipacket.decode_short()
-                duration = ipacket.decode_short()
+                _ = ipacket.decode_short()  # duration
             elif cmd == 27:
                 self.stance = ipacket.decode_byte()
-                unk = ipacket.decode_short()
+                _ = ipacket.decode_short()  # unk
             else:
                 break
 
     def __str__(self):
-        return f"Position: {self.x},{self.y} - Foothold: {self.foothold} - Stance: {self.stance}"
+        return (
+            f"Position: {self.x},{self.y} - Foothold: {self.foothold} "
+            f"- Stance: {self.stance}"
+        )

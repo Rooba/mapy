@@ -19,7 +19,7 @@ SERVER_RE = compile(
 )
 
 try:
-    from loguru._logger import Logger as _Logger, Core
+    from loguru import _Logger, _Core as Core
     from sys import stdout
 
     def fmt_packet(rec):
@@ -58,10 +58,9 @@ try:
         )
 
     def filter_packets(record):
-        return not record["level"] in [ "INPACKET", "OUTPACKET"]
+        return not record["level"] in ["INPACKET", "OUTPACKET"]
 
     class Logger(_Logger):
-
         def __init__(self):
             super().__init__(
                 Core(), None, 0, False, False, False, False, True, None, {}
@@ -76,36 +75,30 @@ try:
                 colorize=True,
                 diagnose=True,
             )
-            self.add(
-                stdout,
-                level="INPACKET",
-                colorize=True,
-                format=fmt_packet,
-            )
-            self.add(
-                stdout,
-                level="OUTPACKET",
-                colorize=True,
-                format=fmt_packet,
-            )
+            self.add(stdout, level="INPACKET", colorize=True, format=fmt_packet)
+            self.add(stdout, level="OUTPACKET", colorize=True, format=fmt_packet)
 
         def packet(self, message, direction):
             return self._log(
-                direction.upper() + "PACKET", None, False, self._options, message,
-                {}, {}
+                direction.upper() + "PACKET",
+                None,
+                False,
+                self._options,
+                message,
+                {},
+                {},
             )
 
         def i_packet(self, message):
             return self._log("INPACKET", None, False, self._options, message, (), {})
 
         def o_packet(self, message):
-            return self._log(
-                "OUTPACKET", None, False, self._options, message, (), {}
-            )
+            return self._log("OUTPACKET", None, False, self._options, message, (), {})
 
     log = Logger()
 
-except ImportError:
+except ImportError as e:
+    print(e)
     from logging import getLogger
 
     log = getLogger()

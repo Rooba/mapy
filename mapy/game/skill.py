@@ -2,14 +2,12 @@ from attrs import define, field
 
 
 class Skill:
-
     def __init__(self, id):
         self._id = id
         self._skill_level_data = []
 
 
 class SkillLevel:
-
     def __init__(self, **kwargs):
         for key, value in kwargs.items():
             setattr(self, key, value)

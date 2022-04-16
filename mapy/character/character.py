@@ -1,16 +1,14 @@
-from typing import Any
+from ..client.wvs_game_client import WvsGameClient
 from ..common.enum import InventoryType
 from ..field.field_object import FieldObject
-from ..utils.tools import Random
+from ..tools import Random
 from .character_stats import CharacterStats
 from .func_key import FuncKeys
 from .inventory import Inventory, InventoryManager
 from .modifiers import CharacterModifiers
-from ..client.wvs_game_client import WvsGameClient
 
 
 class Character(FieldObject):
-
     def __init__(self, stats: dict | None = None):
         super().__init__()
         self._client: WvsGameClient | None = None
@@ -26,8 +24,8 @@ class Character(FieldObject):
         self.skills = {}
         self.random = Random()
 
-        self.map_transfer = [ 0, 0, 0, 0, 0 ]
-        self.map_transfer_ex = [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]
+        self.map_transfer = [0, 0, 0, 0, 0]
+        self.map_transfer_ex = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         self.monster_book_cover_id = 0
 
     @property
@@ -138,9 +136,7 @@ class Character(FieldObject):
                 stickers[new_index] = item
 
         inv_equip = {
-            slot: item
-            for slot, item in self.equip_inventory.items.items()
-            if slot >= 0
+            slot: item for slot, item in self.equip_inventory.items.items() if slot >= 0
         }
         dragon_equip = {
             slot: item
@@ -153,7 +149,7 @@ class Character(FieldObject):
             if slot >= -1200 and slot < -1100
         }
 
-        for inv in [ eqp_normal, stickers, inv_equip, dragon_equip, mechanic_equip ]:
+        for inv in [eqp_normal, stickers, inv_equip, dragon_equip, mechanic_equip]:
             for slot, item in inv.items():
                 if not item:
                     continue
@@ -235,7 +231,7 @@ class Character(FieldObject):
                 new_index = index + 100 if index < -100 else index
                 stickers[new_index] = item
 
-        for inv in [ stickers, unseen ]:
+        for inv in [stickers, unseen]:
             for index, item in inv.items():
                 packet.encode_byte(index * -1).encode_int(item.item_id)
 

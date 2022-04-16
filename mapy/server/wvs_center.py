@@ -3,12 +3,10 @@ from asyncio import get_event_loop, sleep
 from configparser import ConfigParser
 from time import time
 
-from .. import log
+from ..logger import log
 from ..common.constants import CHANNEL_COUNT, GAME_PORT
 from ..common.enum import Worlds
-from ..db.db_client import DatabaseClient
 from ..http_api import server
-from ..utils import wakeup
 
 from .world import World
 from .wvs_game import WvsGame
@@ -85,7 +83,7 @@ class WvsCenter:
         self._config.add_section("worlds")
 
         use_worlds = input("Setup worlds? (y/n) [Defaults will be used otherwise] ")
-        if use_worlds.lower() in [ "y", "yes"]:
+        if use_worlds.lower() in ["y", "yes"]:
             world_num = int(input("Number of worlds: [Max 20] "))
             for i in range(world_num):
                 name = Worlds(i).name
@@ -112,8 +110,8 @@ class WvsCenter:
 
     @classmethod
     def run(cls):
-        self = cls()
-        loop = self._loop
+        self = WvsCenter()
+        loop = get_event_loop()
 
         try:
             loop.add_signal_handler(signal.SIGINT, loop.stop)
@@ -124,6 +122,8 @@ class WvsCenter:
         def stop_loop_on_completion(f):
             loop.stop()
 
+        future_t = loop.create_task(server.app(self))
+        future_t.add_done_callback(stop_loop_on_completion)
         future = loop.create_task(self.start())
         future.add_done_callback(stop_loop_on_completion)
 
@@ -131,7 +131,7 @@ class WvsCenter:
             loop.run_forever()
 
         except KeyboardInterrupt:
-            self.log(f"Received signal to terminate event loop", "warning")
+            self.log("Received signal to terminate event loop", "warning")
             # loop.run_until_complete(self.data.stop())
 
         finally:
@@ -142,7 +142,6 @@ class WvsCenter:
     async def start(self):
         self._start_time = int(time())
         self.log("Initializing Server", "debug")
-        get_event_loop().create_task(server.app(self))
 
         # self.data = DatabaseClient(loop=self._loop, **self._config["database"])
         # await self.data.start()
@@ -165,8 +164,8 @@ class WvsCenter:
             self.worlds[world_id] = world
             self.login.add_world(world)
 
-        while self._loop.is_running():
-            await sleep(60.0)
+        while get_event_loop().is_running():
+            await sleep(600.0)
 
     async def statistics(self):
         return {

@@ -1,5 +1,6 @@
-from .client_base import ClientBase
 from typing import Type
+
+from .client_base import ClientBase
 
 PendingLogin = Type["PendingLogin"]
 

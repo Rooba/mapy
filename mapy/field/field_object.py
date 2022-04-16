@@ -1,10 +1,7 @@
-# from dataclasses import dataclass
-from attrs import define
-import attr
+from attrs import define, field
 
-from ..utils import TagPoint
+from ..tools import TagPoint
 from .field import Field
-
 from .move_path import MovePath
 
 
@@ -39,13 +36,13 @@ class Foothold(object):
 
 @define
 class Portal(object):
-    id: int = int()
-    name: str = str()
-    type: int = int()
-    destination: int = int()
-    destination_label: str = str()
-    x: int = int()
-    y: int = int()
+    _id: int = field(default=0)
+    name: str = ""
+    _type: int = field(default=0)
+    destination: int = 0
+    destination_label: str = ""
+    x: int = 0
+    y: int = 0
 
     def __post_init__(self):
         self.point = TagPoint(self.x, self.y)
@@ -117,7 +114,6 @@ class Mob(Life):
 
 @define
 class Npc(Life):
-
     def __post_init__(self):
         self.pos = MovePath(self.x, self.cy, self.foothold)
         self.id = self.life_id

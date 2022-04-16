@@ -34,8 +34,10 @@ class Schema(Meta):
         #         cols = []
         #         for c in table:
         #             primary_key = c.getattr('primary_key', False)
-        #             col = Column(c._name_.lower(), c.data_type, primary_key=primary_key, **c.options)
-        #             if t.foreign_keys and c.name in getattr(table, 'foreign_keys', []):
+        #             col = Column(c._name_.lower(), c.data_type,
+        #                          primary_key=primary_key, **c.options)
+        #             if t.foreign_keys and c.name
+        #                   in getattr(table, 'foreign_keys', []):
         #                 fks.append(types.ForeignKey(t, col, sql_type=c.data_type))
         #             cols.append(col)
         #         await t.create(*cols)
@@ -599,10 +601,8 @@ class InventoryItems(Table):
 # class InventoryPets(Table):
 #     pass
 
-
 # class Keymap(Table):
 #     pass
-
 
 # class Skills(Table):
 #     pass

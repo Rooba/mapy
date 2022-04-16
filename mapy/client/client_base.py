@@ -3,12 +3,11 @@ from random import randint
 
 from .. import log
 from ..common.constants import LOCALE, SUB_VERSION, VERSION
-from ..net.crypto import (MapleAes, MapleIV, decrypt_transform, encrypt_transform)
-from mapy.net.packet import Packet
+from ..net.crypto import MapleAes, MapleIV, decrypt_transform, encrypt_transform
+from ..net.packet import Packet
 
 
 class ClientSocket:
-
     def __init__(self, socket):
         self._loop = get_event_loop()
         self._socket = socket
@@ -45,8 +44,8 @@ class ClientSocket:
                 async with self._lock:
                     length = MapleAes.get_length(m_recv_buffer)
                     if length != len(m_recv_buffer) - 4:
-                        self._overflow = m_recv_buffer[length + 4:]
-                        m_recv_buffer = m_recv_buffer[:length + 4]
+                        self._overflow = m_recv_buffer[length + 4 :]
+                        m_recv_buffer = m_recv_buffer[: length + 4]
 
                     m_recv_buffer = self.manipulate_buffer(m_recv_buffer)
 
@@ -79,7 +78,6 @@ class ClientSocket:
 
 
 class ClientBase:
-
     def __init__(self, parent, socket):
         self.m_socket = socket
         self._parent = parent

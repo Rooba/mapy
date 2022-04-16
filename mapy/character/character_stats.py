@@ -2,11 +2,11 @@ from attrs import define, field
 
 
 def default_extend_sp():
-    return [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]
+    return [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
 
 def default_pet_locker():
-    return [ 0, 0, 0 ]
+    return [0, 0, 0]
 
 
 @define

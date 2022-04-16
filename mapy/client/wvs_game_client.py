@@ -1,11 +1,11 @@
-from .client_base import ClientBase
 from typing import Type
+
+from .client_base import ClientBase
 
 Character = Type["Character"]
 
 
 class WvsGameClient(ClientBase):
-
     def __init__(self, parent, socket):
         super().__init__(parent, socket)
 

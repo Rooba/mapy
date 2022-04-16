@@ -1,12 +1,12 @@
 HOST_IP = "127.0.0.1"
 SERVER_ADDRESS = bytes([127, 0, 0, 1])
 CENTER_PORT = 8383
-LOGIN_PORT = 8584
+LOGIN_PORT = 8484
 GAME_PORT = 8585
 # if there are 20 worlds with 20 channels they will collide with 8787, future thought
 SHOP_PORT = 8787
 
-USE_DATABASE = True
+USE_DATABASE = False
 # DB_HOST = ""
 # DB_PASS = ""
 # DSN = "postgres://user:password@host:port/database"
@@ -15,7 +15,7 @@ USE_HTTP_API = False
 HTTP_API_ROUTE = "http://127.0.0.1:54545"
 
 WORLD_COUNT = 1
-CHANNEL_COUNT = 6
+CHANNEL_COUNT = 4
 
 VERSION = 112
 SUB_VERSION = "4"
@@ -74,7 +74,7 @@ ANTIREPEAT_BUFFS = [
     2101003,
     1321000,
     1311007,
-    1311006
+    1311006,
 ]
 
 EVENT_VEHICLE_SKILLS = [
@@ -105,7 +105,7 @@ EVENT_VEHICLE_SKILLS = [
     1065,
     1069,
     1070,
-    1071
+    1071,
 ]
 
 

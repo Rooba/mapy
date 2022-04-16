@@ -1,11 +1,12 @@
 from typing import Any
+
+from ..game import item as Item
+
 from ..common.abc import Inventory as _Inventory
 from ..common.enum import InventoryType
-from mapy.game import item as Item
 
 
 class InventoryManager:
-
     def __init__(self, character):
         self._character = character
         self.tracker = Tracker()
@@ -15,8 +16,7 @@ class InventoryManager:
             self.inventories[i] = Inventory(InventoryType(i), 28)
 
     def __iter__(self):
-        return (( inv_type, inv.items )
-                for inv_type, inv in self.inventories.items())
+        return ((inv_type, inv.items) for inv_type, inv in self.inventories.items())
 
     @property
     def updates(self):
@@ -51,7 +51,6 @@ class InventoryManager:
 
 
 class Tracker:
-
     def __init__(self):
         self.type = InventoryType.TRACKER
         self._starting = []
@@ -65,12 +64,11 @@ class Tracker:
 
     @property
     def inventory_changes(self):
-        return [{
-            **item.__dict__, "inventory_type": inv_type,
-            "position": slot
-        }
-                for inv_type, inventory in self._items.items()
-                for slot, item in inventory.items()]
+        return [
+            {**item.__dict__, "inventory_type": inv_type, "position": slot}
+            for inv_type, inventory in self._items.items()
+            for slot, item in inventory.items()
+        ]
 
     # def get_update(self):
     #     return [{**item.__dict__,
@@ -99,7 +97,6 @@ class Tracker:
 
 
 class Inventory(_Inventory):
-
     def __init__(self, type_, slots):
         self._unique_id = None
         self.type = type_
@@ -110,7 +107,7 @@ class Inventory(_Inventory):
         return self.items.get(key)
 
     def __iter__(self):
-        return ( item for item in self.items )
+        return (item for item in self.items)
 
     def get_free_slot(self):
         for i in range(1, self._slots + 1):
@@ -119,9 +116,9 @@ class Inventory(_Inventory):
 
         return None
 
-    def add(self,
-            item: Item.ItemSlotBase,
-            slot=None) -> tuple[int, Item.ItemSlotBase | None]:
+    def add(
+        self, item: Item.ItemSlotBase, slot=None
+    ) -> tuple[int, Item.ItemSlotBase | None]:
         items = None
 
         if isinstance(item, Item.ItemSlotEquip):
@@ -129,7 +126,7 @@ class Inventory(_Inventory):
 
             if free_slot:
                 self.items[free_slot] = item
-                items = ( free_slot, item )
+                items = (free_slot, item)
 
         elif isinstance(item, Item.ItemSlotBundle):
             # Get Slot with same item_id and not max bundle
@@ -137,7 +134,7 @@ class Inventory(_Inventory):
             pass
 
         if not items:
-            return ( 0, None )
+            return (0, None)
 
         return items
 

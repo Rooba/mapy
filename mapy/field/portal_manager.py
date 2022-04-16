@@ -2,7 +2,6 @@ from random import choice
 
 
 class PortalManager:
-
     def __init__(self):
         self.portals = []
 
