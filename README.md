@@ -6,14 +6,14 @@ Maplestory emulator written in Python
 
 - Postgresql
 - Python 3.10+
-- pycryptodome>=3.14.1
-- asyncpg>=0.25.0
-- attrs>=21.4.0
-- more-itertools>=8.12.0
-- jinja2>=3.1.1
-- fastapi>=0.75.1
-- uvicorn>=0.17.6
-- pyyaml>=6.0
+- pycryptodome
+- asyncpg
+- attrs
+- more-itertools
+- jinja2
+- fastapi
+- uvicorn
+- pyyaml
 
 ## Optional
 
@@ -34,7 +34,7 @@ Maplestory emulator written in Python
   - Move item slot
   - Drop Items
   - Loot Items
-  - Proper serial handling for equips when transfering ownership
+  - Proper serial handling for equips when transferring ownership
   - Increase/Decrease stack count
 
 - Portal Navigation

@@ -1,33 +1,33 @@
-from mapy.common import constants
-from mapy.net.packet import Packet
-from mapy.net.opcodes import CSendOps
-from typing import Type
+from .constants import *
 
-PendingLogin = Type["PendingLogin"]
+from .opcodes import CSendOps
+from .packet import Packet
+
+# class PendingLogin(type):
 
 
 class CPacket:
     @staticmethod
-    def check_password_result(client: PendingLogin | None = None, response=None):
+    def check_password_result(pending=None, response=None):
         packet = Packet(op_code=CSendOps.LP_CheckPasswordResult)
 
         if response != 0:
             packet.encode_int(response)
             packet.encode_short(0)
 
-        if not client:
+        if not pending:
             return packet
 
         packet.encode_byte(0)
         packet.encode_byte(0)
         packet.encode_int(0)
 
-        packet.encode_int(client.account.id)
-        packet.encode_byte(client.account.gender)
+        packet.encode_int(pending.account.id)
+        packet.encode_byte(pending.account.gender)
         packet.encode_byte(0)
         packet.encode_short(0)
         packet.encode_byte(0)
-        packet.encode_string(client.account.username)
+        packet.encode_string(pending.account.username)
         packet.encode_byte(0)
         packet.encode_byte(0)
         packet.encode_long(0)
@@ -143,9 +143,7 @@ class CPacket:
         packet.encode_byte(0)
         packet.encode_byte(world.id)
 
-        characters = list(
-            filter(lambda character: character.world_id == world.id, characters)
-        )
+        characters = list(filter(lambda ch: ch.world_id == world.id, characters))
 
         packet.encode_byte(len(characters))
 
@@ -175,7 +173,7 @@ class CPacket:
         packet.encode_byte(0)  # world
         packet.encode_byte(0)  # selected char
 
-        packet.encode_buffer(constants.SERVER_ADDRESS)
+        packet.encode_buffer(Network.SERVER_ADDRESS)
         packet.encode_short(port)
         packet.encode_int(uid)
         packet.encode_byte(0)
@@ -188,7 +186,7 @@ class CPacket:
     @staticmethod
     def set_field(character, character_data, channel: int):
         packet = Packet(op_code=CSendOps.LP_SetField)
-        # CPacket.cclient_opt_man__encode_opt(packet, 0)
+        # CPacket.client_opt_man__encode_opt(packet, 0)
         packet.encode_short(0)
 
         packet.encode_int(channel)
@@ -282,7 +280,7 @@ class CPacket:
         packet.encode_int(0)  # driver ID
         packet.encode_int(0)  # passenger ID
         packet.encode_int(0)  # choco count
-        packet.encode_int(0)  # active effeect item ID
+        packet.encode_int(0)  # active effect item ID
         packet.encode_int(0)  # completed set item ID
         packet.encode_int(0)  # portable chair ID
 

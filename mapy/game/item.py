@@ -1,4 +1,5 @@
 from enum import Enum
+from uuid import UUID, uuid4
 
 from attrs import define
 
@@ -29,9 +30,9 @@ class ItemSlotBase(object):
     """
 
     item_id: int = 0
-    cisn: int = 0
+    item_uuid: UUID = uuid4()
+    source_type: int = 0
     expire: int = 0
-    inventory_item_id: int = 0
     quantity: int = 0
     flag: int = 0
 

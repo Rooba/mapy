@@ -1,7 +1,7 @@
-import pydoc
 import datetime
 import decimal
 import inspect
+import pydoc
 
 from .errors import SchemaError
 
@@ -30,7 +30,8 @@ class SQLType:
         return self
 
     def __eq__(self, other):
-        return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+        return isinstance(other,
+                          self.__class__) and self.__dict__ == other.__dict__
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -143,7 +144,8 @@ class Decimal(SQLType):
     def __init__(self, *, precision=None, scale=None):
         if precision is not None:
             if precision < 0 or precision > 1000:
-                raise SchemaError("precision must be greater than 0 and below 1000")
+                raise SchemaError(
+                    "precision must be greater than 0 and below 1000")
             if scale is None:
                 scale = 0
 
@@ -162,7 +164,8 @@ class Numeric(SQLType):
     def __init__(self, *, precision=None, scale=None):
         if precision is not None:
             if precision < 0 or precision > 1000:
-                raise SchemaError("precision must be greater than 0" "and below 1000")
+                raise SchemaError("precision must be greater than 0"
+                                  "and below 1000")
             if scale is None:
                 scale = 0
 
@@ -213,6 +216,7 @@ class JSON(SQLType):
 
 
 class ForeignKey(SQLType):
+
     def __init__(
         self,
         table,
@@ -225,7 +229,8 @@ class ForeignKey(SQLType):
         if not table or not isinstance(table, str):
             raise SchemaError("Missing table to reference (must be string)")
 
-        valid_actions = ("NO ACTION", "RESTRICT", "CASCADE", "SET NULL", "SET DEFAULT")
+        valid_actions = ("NO ACTION", "RESTRICT", "CASCADE", "SET NULL",
+                         "SET DEFAULT")
 
         on_delete = on_delete.upper()
         on_update = on_update.upper()
@@ -259,13 +264,12 @@ class ForeignKey(SQLType):
         return False
 
     def to_sql(self):
-        return (
-            f"{self.column} REFERENCES {self.table} ({self.column})"
-            f" ON DELETE {self.on_delete} ON UPDATE {self.on_update}"
-        )
+        return (f"{self.column} REFERENCES {self.table} ({self.column})"
+                f" ON DELETE {self.on_delete} ON UPDATE {self.on_update}")
 
 
 class ArraySQL(SQLType):
+
     def __init__(self, inner_type, size: int | None = None):
         if not isinstance(inner_type, SQLType):
             raise SchemaError("Array inner type must be an SQLType")

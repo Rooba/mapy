@@ -1,35 +1,32 @@
 import json
-from asyncio import wait_for
+from abc import ABCMeta
+from asyncio import get_running_loop, wait_for
 from datetime import date
 from typing import Union
 
 from asyncpg import PostgresError, create_pool
 from asyncpg.exceptions import InterfaceError
 
-from .. import log
-from ..character.account import Account as Account_
-from ..character.character import Character
-from ..character.character_entry import CharacterEntry
-from ..character.func_key import FuncKey
-from ..character.skill_entry import SkillEntry
-from ..field.field import Field as field
-from ..field.field_object import Foothold, Mob, Npc, Portal
-from ..game import item as Item  # ItemSlotBundle,
-from ..game.item import ItemSlotEquip
-from ..game.skill import SkillLevelData
+from ..constants import ItemType
+from ..game import Account as Account_
+from ..game import CharacterEntry
+from ..game import Field as _Field
+from ..game import (Foothold, FuncKey, ItemSlotBundle, ItemSlotEquip,
+                    MapleCharacter, Mob, Npc, Portal, SkillEntry,
+                    SkillLevelData)
+from ..logger import Logger
 from ..tools import get
-from .schema import (
-    Column,
-    Insert,
-    IntColumn,
-    ListArguments,
-    Query,
-    Schema,
-    StringColumn,
-    Table,
-    Update,
-)
+from .schema import (Column, Insert, IntColumn, ListArguments, Query, Schema,
+                     StringColumn, Table, Update)
 from .structure import RMDB, Maplestory
+
+
+def match_item(inventory_type):
+    match inventory_type:
+        case 1:
+            return ItemSlotEquip
+        case _:
+            return ItemSlotBundle
 
 
 class SchemaError(PostgresError):
@@ -72,12 +69,13 @@ class DatabaseClient:
         port=5432,
         database="postgres",
     ):
-
+        self._logger: Logger = Logger(self)
         self._user = user
         self._pass = password
         self._host = host
         self._port = port
         self._database = database
+        self.pool = None
         self._dsn = f"postgres://{user}:{password}@{host}:{port}/{database}"
 
         # WZ Data
@@ -89,8 +87,13 @@ class DatabaseClient:
         return self._dsn
 
     def log(self, message, level=None):
-        level = level if level else "info"
-        getattr(log, level)(f"{self._name} {message}")
+        if not self._logger:
+            return
+
+        if not level:
+            return self._logger.log_basic(message)
+        else:
+            return self._logger.log(str(level).upper(), message)
 
     async def start(self):
         # try:
@@ -115,8 +118,8 @@ class DatabaseClient:
         self.log("Closed PostgreSQL pool")
 
     async def recreate_pool(self):
-        self.log("Re-Creating PostgreSQL pool", "warning")
-        self.pool = await create_pool(self.dsn, loop=self.loop, init=init_conn)
+        self.log("Re-Creating PostgreSQL pool", "WARNING")
+        self.pool = await create_pool(self.dsn, loop=get_running_loop(), init=init_conn)
 
     async def initialize_database(self):
         pass
@@ -236,12 +239,22 @@ def get_chars(fn):
     return wrapper
 
 
-class QueryTable:
+class QueryTable(metaclass=ABCMeta):
+
+    def __init__(self):
+        self._db = None
+        self._table = ""
+
     @property
     def table(self):
+        if not self._db:
+            raise NotImplementedError
+
         return self._db.table(self._table)
 
     def query(self, table=None):
+        if not self._table or not self._db:
+            raise NotImplementedError
         return self._db.query(table if table else self._table)
 
     # @property
@@ -271,6 +284,7 @@ class Account(QueryTable):
 
         self._db = db
         self._table = ACCOUNTS
+        self.account = None
 
         self.id = id_ if id_ else kwargs.get("id", None)
         self.username = username
@@ -289,7 +303,7 @@ class Account(QueryTable):
         # Loading (if exists) the account onto the client object
         # Needs to be lazily loaded and not hot loaded every call
         if not self.username or self.id:
-            log.error("Missing username or password to search by")
+            Logger.error("Missing username or password to search by")
 
         search = {
             a: getattr(self, a)
@@ -383,7 +397,7 @@ class Characters(QueryTable):
     async def load(self, character_id, client):
         character = await self.query().where(id=character_id).get_first()
 
-        character = Character(character)
+        character = MapleCharacter(character)
         character.client = client
         character.data = self
 
@@ -512,7 +526,7 @@ class Inventories:
         for item in inventory:
             inventory_type = item["inventory_type"]
             slot = item["position"]
-            item = getattr(Item, Item.ItemInventoryTypes(inventory_type).name)(**item)
+            item = match_item(inventory_type)(**item)
             character.inventories.add(item, slot)
 
         character.inventories.tracker.copy(*character.inventories)
@@ -593,46 +607,36 @@ class Items:
         return self._item_data_table
 
     async def get_many(self, *item_ids):
-        item_ids = item_ids
-        pre_cached = [item for item in self._cached_items if item.item_id in item_ids]
+        item_ids = set(item_ids)
 
-        assert pre_cached.count() != 0
-
-        cached_ids = set([i.item_id for i in pre_cached])
-
-        if cached_ids == set(item_ids):
+        to_cache = set(
+            filter(
+                lambda i: set([c.item_id for c in self._cached_items]) & set([i]),
+                item_ids,
+            )
+        )
+        pre_cached = list(filter(lambda i: item_ids & set([i]), self._cached_items))
+        if len(to_cache) < 1:
             return pre_cached
-
-        to_cache = list(set([i for i in item_ids]) - cached_ids)
 
         def get_type(type_):
             return ListArguments(
-                [i for i, id in enumerate(to_cache) if int(id / 1000000) == type_]
+                [id for id in to_cache if ItemType(id // 1000000) == type_]
             )
-
-        inv_type = {
-            1: get_type(1),
-            #     20: 'consumeable',
-            #     21: 'rechargeable',
-            #     3: None,
-            #     4: None,
-            #     50: 'pet',
-            #     51: None
-        }.get()
 
         items = []
 
-        for k, v in inv_type.items():
+        for k in ItemType:
             specific = get_type(k)
             if not len(specific):
                 continue
 
             query = self._db.query("rmdb.item_data").select(*RMDB.ITEM_DATA.columns)
 
-            if v is not None:
-                query.inner_join(f"rmdb.item_{v}_data", "item_id").where(
-                    IntColumn("item_id") in specific
-                )
+            # if v is not None:
+            #     query.inner_join(f"rmdb.item_{v}_data", "item_id").where(
+            #         IntColumn("item_id") in specific
+            #     )
 
             fetched_items = await query.get()
 
@@ -642,7 +646,7 @@ class Items:
                     if v:
                         cleaned_item[k] = v
 
-                item = getattr(Item, Item.ItemInventoryTypes(k).name)(**cleaned_item)
+                item = match_item(k)(**cleaned_item)
                 items.append(item)
                 self._cached_items.append(item)
 
@@ -654,7 +658,7 @@ class Items:
         if pre_cached:
             return pre_cached
 
-        item_type = int(item_id / 1000000)
+        item_type = item_id // 1000000
 
         query = await (self.query("rmdb.item_data"))
 
@@ -668,7 +672,7 @@ class Items:
             if value is not None:
                 cleaned_item[key] = value
 
-        item = getattr(Item, Item.ItemInventoryTypes(item_type).name)(**cleaned_item)
+        item = match_item(item_type)(**cleaned_item)
         self._cached_items.append(item)
         return item
 
@@ -702,7 +706,7 @@ class Field:
         self._db = db
 
     async def get(self, map_id):
-        _field = field(map_id)
+        _field = _Field(map_id)
 
         portals = (
             await self._db.table("rmdb.map_portals").query().where(map_id=map_id).get()

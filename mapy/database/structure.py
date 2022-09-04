@@ -2,11 +2,23 @@ from enum import Enum
 
 
 class Meta(Enum):
+
     def __str__(self):
         return f"{self.__class__.__name__.lower()}.{super().__str__()}"
 
 
+# class Schema(object):
+#     def __init_subclass__(cls, *args, **kwargs):
+#         for named, type_ in cls.__annotations__.items():
+#             anon_prop = property(
+#                 fget=lambda x: getattr(cls, f"_{x}_"),
+#                 fset=lambda x, v: setattr(cls, f"_{x}_", v),
+#             )
+#             setattr(cls, named, anon_prop)
+
+
 class Schema(Meta):
+
     def __new__(cls, value):
         value.schema = cls.__name__.lower()
         value.primary_key = value.__dict__.get("__primary_key__")
@@ -53,7 +65,7 @@ class Table(int, Meta):
 
     def __new__(cls, data_type, options=None):
         value = len(cls.__members__) + 1
-        enum_class = super(type(cls)).__new__(cls, value)
+        enum_class = super().__new__(cls, value)
 
         enum_class._value_ = value
         enum_class.data_type = data_type
@@ -126,7 +138,7 @@ class ItemConsumeableData(Table):
     CARNIVAL_SKILL = "smallint"
     EXPERIENCE = "integer"
 
-    __primary_key__ = ("ITEM_ID",)
+    __primary_key__ = ("ITEM_ID", )
 
 
 class ItemData(Table):
@@ -151,7 +163,7 @@ class ItemData(Table):
     ADD_TIME = "smallint"
     SLOT_INDEX = "smallint"
 
-    __primary_key__ = ("ITEM_ID",)
+    __primary_key__ = ("ITEM_ID", )
 
 
 class ItemEquipData(Table):
@@ -211,7 +223,7 @@ class ItemPetData(Table):
     EVOLUTION_LEVEL = "smallint"
     FLAGS = "varchar[]"
 
-    __primary_key__ = ("ITEM_ID",)
+    __primary_key__ = ("ITEM_ID", )
 
 
 class ItemRechargeableData(Table):
@@ -497,7 +509,7 @@ class Account(Table):
     ADMIN = ("bool", {"default": 0})
     GENDER = "bool"
 
-    __primary_key__ = ("ID",)
+    __primary_key__ = ("ID", )
     # __unqiue_index__ = ("USERNAME")
 
 
@@ -537,7 +549,7 @@ class Character(Table):
     EXTEND_SP = "smallint[]"
     WORLD_ID = "smallint"
 
-    __primary_key__ = ("ID",)
+    __primary_key__ = ("ID", )
     __foreign_keys__ = {"account_id": "accounts.id"}
 
 
@@ -578,7 +590,9 @@ class InventoryEquipment(Table):
     RUC = "smallint"
 
     __primary_key__ = "inventory_item_id"
-    __foreign_keys__ = {"INVENTORY_ITEM_ID": "inventory_items.inventory_item_id"}
+    __foreign_keys__ = {
+        "INVENTORY_ITEM_ID": "inventory_items.inventory_item_id"
+    }
 
 
 class InventoryItems(Table):

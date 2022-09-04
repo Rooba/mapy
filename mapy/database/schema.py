@@ -1,19 +1,9 @@
 from itertools import chain, zip_longest
 from typing import Any
 
-from more_itertools import partition
-
 from .errors import QueryError, ResponseError, SchemaError
-from .types import (
-    ArraySQL,
-    Boolean,
-    Datetime,
-    Decimal,
-    Integer,
-    Interval,
-    SQLType,
-    String,
-)
+from .types import (ArraySQL, Boolean, Datetime, Decimal, Integer, Interval,
+                    SQLType, String)
 
 
 def default_tmpl(c, o, v):
@@ -21,9 +11,11 @@ def default_tmpl(c, o, v):
 
 
 class SQLOperator:
-    def __init__(
-        self, sql_oper: str | None, py_oper: str | None, str_tmpl: str | Any = None
-    ):
+
+    def __init__(self,
+                 sql_oper: str | None,
+                 py_oper: str | None,
+                 str_tmpl: str | Any = None):
         self.__sql_oper = sql_oper
         self.__py_oper = py_oper
         self.__str_tmpl: Any[Any] = default_tmpl if not str_tmpl else str_tmpl
@@ -40,7 +32,8 @@ class SQLOperator:
                 return self.__str_tmpl(column, self.__sql_oper, value)
         elif min_value and max_value:
             if callable(self.__str_tmpl):
-                return self.__str_tmpl(column, self.__sql_oper, min_value, max_value)
+                return self.__str_tmpl(column, self.__sql_oper, min_value,
+                                       max_value)
 
     @classmethod
     def lt(cls):
@@ -84,9 +77,8 @@ class SQLOperator:
 
     @classmethod
     def between(cls):
-        return cls(
-            "BETWEEN", None, lambda c, o, mn_v, mx_v: f"{c} {o} {mn_v} AND {mx_v}"
-        )
+        return cls("BETWEEN", None,
+                   lambda c, o, mn_v, mx_v: f"{c} {o} {mn_v} AND {mx_v}")
 
     @classmethod
     def in_(cls):
@@ -110,6 +102,7 @@ class Column_:
 
 
 class SQLComparison:
+
     def __init__(
         self,
         operator: str | SQLOperator,
@@ -187,9 +180,8 @@ class Column:
         self.index_name = None
 
         if sum(map(bool, [primary_key, default is not None, unique])) > 1:
-            raise SchemaError(
-                "Only one of `default`, `primary_key`, or " "`unique` may be present"
-            )
+            raise SchemaError("Only one of `default`, `primary_key`, or "
+                              "`unique` may be present")
 
         if table and not isinstance(table, Table):
             raise SchemaError("`table` must be a `Table` object")
@@ -214,38 +206,44 @@ class Column:
             return self.full_name
 
     def __lt__(self, value):
-        return SQLComparison(SQLOperator.lt(), self.aggregate, self.full_name, value)
+        return SQLComparison(SQLOperator.lt(), self.aggregate, self.full_name,
+                             value)
 
     def __le__(self, value):
-        return SQLComparison(SQLOperator.le(), self.aggregate, self.full_name, value)
+        return SQLComparison(SQLOperator.le(), self.aggregate, self.full_name,
+                             value)
 
     def __eq__(self, value):
-        return SQLComparison(SQLOperator.eq(), self.aggregate, self.full_name, value)
+        return SQLComparison(SQLOperator.eq(), self.aggregate, self.full_name,
+                             value)
 
     def __ne__(self, value):
-        return SQLComparison(SQLOperator.ne(), self.aggregate, self.full_name, value)
+        return SQLComparison(SQLOperator.ne(), self.aggregate, self.full_name,
+                             value)
 
     def __gt__(self, value):
-        return SQLComparison(SQLOperator.gt(), self.aggregate, self.full_name, value)
+        return SQLComparison(SQLOperator.gt(), self.aggregate, self.full_name,
+                             value)
 
     def __ge__(self, value):
-        return SQLComparison(SQLOperator.ge(), self.aggregate, self.full_name, value)
+        return SQLComparison(SQLOperator.ge(), self.aggregate, self.full_name,
+                             value)
 
     def like(self, value):
-        return SQLComparison(SQLOperator.like(), self.aggregate, self.full_name, value)
+        return SQLComparison(SQLOperator.like(), self.aggregate,
+                             self.full_name, value)
 
     def ilike(self, value):
-        return SQLComparison(SQLOperator.ilike(), self.aggregate, self.full_name, value)
+        return SQLComparison(SQLOperator.ilike(), self.aggregate,
+                             self.full_name, value)
 
     def not_like(self, value):
-        return SQLComparison(
-            SQLOperator.not_like(), self.aggregate, self.full_name, value
-        )
+        return SQLComparison(SQLOperator.not_like(), self.aggregate,
+                             self.full_name, value)
 
     def not_ilike(self, value):
-        return SQLComparison(
-            SQLOperator.not_ilike(), self.aggregate, self.full_name, value
-        )
+        return SQLComparison(SQLOperator.not_ilike(), self.aggregate,
+                             self.full_name, value)
 
     def between(self, minvalue, maxvalue):
         return SQLComparison(
@@ -258,18 +256,17 @@ class Column:
 
     def in_(self, value):
         if isinstance(value, Column):
-            return SQLComparison(
-                SQLOperator.in__(), self.aggregate, self.full_name, value
-            )
+            return SQLComparison(SQLOperator.in__(), self.aggregate,
+                                 self.full_name, value)
 
-        return SQLComparison(SQLOperator.in_(), self.aggregate, self.full_name, value)
+        return SQLComparison(SQLOperator.in_(), self.aggregate, self.full_name,
+                             value)
 
     def contains(self, value):  # *values
         # if (isinstance(v, Column) == True for v in values):
         if isinstance(value, Column) or isinstance(value, (int, str, bool)):
-            return SQLComparison(
-                SQLOperator.contains(), self.aggregate, self.full_name, value
-            )
+            return SQLComparison(SQLOperator.contains(), self.aggregate,
+                                 self.full_name, value)
 
     @classmethod
     def from_dict(cls, data):
@@ -283,7 +280,8 @@ class Column:
         sql.extend([self.full_name, self.data_type.to_sql()])
 
         if self.default is not None:
-            if isinstance(self.default, str) and isinstance(self.data_type, str):
+            if isinstance(self.default, str) and isinstance(
+                    self.data_type, str):
                 default = f"'{self.default}'"
             elif isinstance(self.default, bool):
                 default = str(self.default).upper()
@@ -338,16 +336,21 @@ class Column:
         return await self.table.upsert(**data)  # type: ignore
 
     async def get(self, **filters):
-        return await self.table.get(columns=self.name, **filters)  # type: ignore
+        return await self.table.get(columns=self.name,
+                                    **filters)  # type: ignore
 
     async def get_first(self, **filters):
-        return await self.table.get_first(column=self.name, **filters)  # type: ignore
+        return await self.table.get_first(column=self.name,
+                                          **filters)  # type: ignore
 
 
 class PrimaryKeyColumn(Column):
-    def __init__(
-        self, name: str, big_int: bool = False, auto_increment: bool = False, **kwargs
-    ):
+
+    def __init__(self,
+                 name: str,
+                 big_int: bool = False,
+                 auto_increment: bool = False,
+                 **kwargs):
         super().__init__(
             name,
             data_type=Integer(auto_increment=auto_increment),
@@ -357,11 +360,13 @@ class PrimaryKeyColumn(Column):
 
 
 class StringColumn(Column):
+
     def __init__(self, name=None, **kwargs):
         super().__init__(name, String(), **kwargs)
 
 
 class IntColumn(Column):
+
     def __init__(self, name, big=False, small=False, **kwargs):
 
         super().__init__(name, Integer(big=big, small=small), **kwargs)
@@ -378,26 +383,32 @@ class IntColumn(Column):
 
 
 class BoolColumn(Column):
+
     def __init__(self, name, **kwargs):
         super().__init__(name, Boolean(), **kwargs)
 
 
 class DatetimeColumn(Column):
+
     def __init__(self, name, *, timezone=False, **kwargs):
         super().__init__(name, Datetime(timezone=timezone), **kwargs)
 
 
 class DecimalColumn(Column):
+
     def __init__(self, name, *, precision=None, scale=None, **kwargs):
-        super().__init__(name, Decimal(precision=precision, scale=scale), **kwargs)
+        super().__init__(name, Decimal(precision=precision, scale=scale),
+                         **kwargs)
 
 
 class IntervalColumn(Column):
+
     def __init__(self, name, field=False, **kwargs):
         super().__init__(name, Interval(field), **kwargs)
 
 
 class ListArguments:
+
     def __init__(self, args):
         self._args = args
 
@@ -405,7 +416,8 @@ class ListArguments:
         return len(self._args)
 
     def __contains__(self, column):
-        return SQLComparison(SQLOperator.in_(), None, column.full_name, self._args)
+        return SQLComparison(SQLOperator.in_(), None, column.full_name,
+                             self._args)
 
 
 class TableAlter:
@@ -422,9 +434,9 @@ class TableAlter:
         modes = self.upgrade if not downgrade else self.downgrade
 
         for rename in modes.get("rename_columns", []):
-            stmts.append(
-                f"{base} RENAME COLUMN " f"{rename['before']} TO " f"{rename['after']};"
-            )
+            stmts.append(f"{base} RENAME COLUMN "
+                         f"{rename['before']} TO "
+                         f"{rename['after']};")
 
         extnd_stmts = []
         for drop in modes.get("drop_columns", []):
@@ -471,10 +483,8 @@ class TableAlter:
             stmts.append(f"DROP INDEX IF EXISTS {drop['index']}")
 
         for add in modes.get("added_indexes", []):
-            stmts.append(
-                f"CREATE INDEX IF NO EXISTS {add['index']}"
-                f"ON {self.table.full_name} ({add['name']})"
-            )
+            stmts.append(f"CREATE INDEX IF NO EXISTS {add['index']}"
+                         f"ON {self.table.full_name} ({add['name']})")
 
 
 class Schema:
@@ -513,6 +523,7 @@ class Schema:
 
 
 class TableColumns:
+
     def __init__(self, table):
         self._table = table
         self._db = table.db
@@ -540,8 +551,8 @@ class TableColumns:
     async def get_primaries(self):
         kcu = Table("information_schema.key_column_usage", self._db)
         query = kcu.query("column_name").where(
-            table_name=self._table.name, constraint_name=f"{self._table.name}_pkey"
-        )
+            table_name=self._table.name,
+            constraint_name=f"{self._table.name}_pkey")
 
         return await query.get_values()
 
@@ -614,15 +625,12 @@ class Table:
 
         if primaries:
             if isinstance(primaries, str):
-                sql.append(
-                    f", CONSTRAINT {self.name}_pkey " f"PRIMARY KEY ({primaries})"
-                )
+                sql.append(f", CONSTRAINT {self.name}_pkey "
+                           f"PRIMARY KEY ({primaries})")
 
             elif isinstance(primaries, (list, tuple, set)):
-                sql.append(
-                    f", CONSTRAINT {self.name}_pkey"
-                    f" PRIMARY KEY ({', '.join(primaries)})"
-                )
+                sql.append(f", CONSTRAINT {self.name}_pkey"
+                           f" PRIMARY KEY ({', '.join(primaries)})")
 
         sql.append(")")
         return "".join(sql)
@@ -648,10 +656,8 @@ class Table:
                 sql += f", CONSTRAINT {self.name}_pkey PRIMARY KEY ({primaries})"
 
             elif isinstance(primaries, (list, tuple, set)):
-                sql += (
-                    f", CONSTRAINT {self.name}_pkey"
-                    f" PRIMARY KEY ({', '.join(primaries)})"
-                )
+                sql += (f", CONSTRAINT {self.name}_pkey"
+                        f" PRIMARY KEY ({', '.join(primaries)})")
 
         sql += ")"
         await self.database.execute_transaction(sql)
@@ -668,18 +674,18 @@ class Table:
     async def drop(self):
         """Drop table from database."""
         sql = "DROP TABLE $1"
-        return await self.database.execute_transaction(sql, (self.full_name,))
+        return await self.database.execute_transaction(sql, (self.full_name, ))
 
     async def get_constraints(self):
         """Get column from table."""
         table = Table("information_schema.table_constraints", self.db)
-        table.query("constrain_name").where(
-            TABLE_NAME=table, CONSTRAINT_TYPE="PRIMARY KEY"
-        )
+        table.query("constrain_name").where(TABLE_NAME=table,
+                                            CONSTRAINT_TYPE="PRIMARY KEY")
         return await table.query.get_values()
 
 
 class SQLConditions:
+
     def __init__(self, parent=None, allow_having=True):
         self.allow_having = allow_having
         self._parent = parent
@@ -699,9 +705,12 @@ class SQLConditions:
     def sort_conditions(self, *conditions, allow_having=True):
         having_list = []
         where_list = []
-        not_comps, comps = partition(lambda c: isinstance(c, SQLComparison), conditions)
+        comps = {c for c in conditions if isinstance(c, SQLComparison)}
+        not_comps = set(*conditions) - comps
+        not_comps, comps = self.partition(
+            lambda c: isinstance(c, SQLComparison), conditions)
 
-        where, having = partition(lambda c: c.aggregate, comps)
+        where, having = self.partition(lambda c: c.aggregate, comps)
 
         if not self.allow_having and having:
             raise SchemaError("'HAVING' cannot be in an update statement")
@@ -854,7 +863,8 @@ class Query:
                 self._from.add(Table(table, self._db))
             else:
                 type_given = type(table).__name__
-                raise SyntaxError(f"Unexpected data type encountered: {type_given}")
+                raise SyntaxError(
+                    f"Unexpected data type encountered: {type_given}")
 
         return self
 
@@ -894,7 +904,8 @@ class Query:
 
     def inner_join(self, table, col):
         if not isinstance(col, str):
-            raise TypeError("Method 'inner_join' only accepts a string argument.")
+            raise TypeError(
+                "Method 'inner_join' only accepts a string argument.")
 
         self._inner_join = table
         self._using = col
@@ -902,10 +913,12 @@ class Query:
 
     def left_join(self, table, *cols):
         if not isinstance(table, (Table, str)):
-            raise TypeError("Argument 'table' must be of type 'str' or 'Table'")
+            raise TypeError(
+                "Argument 'table' must be of type 'str' or 'Table'")
         for col in cols:
             if not isinstance(col, (Column, str)):
-                raise TypeError("Using columns must be of type 'str' or 'Column'")
+                raise TypeError(
+                    "Using columns must be of type 'str' or 'Column'")
 
         self._left_join = table
         self._using = cols
@@ -915,9 +928,8 @@ class Query:
         sql = []
         if self._with:
             sql.append("WITH")
-            sql.append(
-                ", ".join(f"{name} AS ({statement})" for name, statement in self._with)
-            )
+            sql.append(", ".join(f"{name} AS ({statement})"
+                                 for name, statement in self._with))
 
         if delete:
             sql.append("DELETE")
@@ -933,14 +945,13 @@ class Query:
         sql.append(f"FROM {', '.join(table_names)}")
 
         if self._left_join:
-            sql.append(
-                (
-                    f"LEFT JOIN {self._left_join} " f"USING({', '.join(self._using)}) "
-                )  # type: ignore
-            )
+            sql.append((f"LEFT JOIN {self._left_join} "
+                        f"USING({', '.join(self._using)}) ")  # type: ignore
+                       )
 
         elif self._inner_join:
-            sql.append((f"INNER JOIN {self._inner_join} " f"USING({self._using}) "))
+            sql.append((f"INNER JOIN {self._inner_join} "
+                        f"USING({self._using}) "))
 
         if self.conditions._queued_conditions:
             self.conditions.add_conditions()
@@ -1034,7 +1045,8 @@ class Insert:
             self._from = Table(table, self._db)
         else:
             type_given = type(table).__name__
-            raise SyntaxError(f"Unexpected data type encountered: {type_given}.")
+            raise SyntaxError(
+                f"Unexpected data type encountered: {type_given}.")
 
         return self
 
@@ -1127,7 +1139,8 @@ class Insert:
             return self._columns
 
         if self._data:
-            raise SchemaError("Columns must be declared before data has been added.")
+            raise SchemaError(
+                "Columns must be declared before data has been added.")
 
         self._columns = columns
         return self
@@ -1151,17 +1164,16 @@ class Insert:
                 "Unable to mix positional args and kwargs when adding row "
                 "data. Use only positional args if columns are set or all "
                 "columns will be specified. Use only kwargs if adding row "
-                "data to specify relevant columns."
-            )
+                "data to specify relevant columns.")
 
         if values and not self._columns:
             raise SyntaxError(
                 "Columns must be declared before being able to use "
-                "positional args for this method."
-            )
+                "positional args for this method.")
 
         if values:
-            dict_values = dict(zip_longest(self._columns, values))  # type: ignore
+            dict_values = dict(zip_longest(self._columns,
+                                           values))  # type: ignore
             if None in dict_values:
                 raise SyntaxError(
                     "Too many values given "
@@ -1178,8 +1190,7 @@ class Insert:
         if not hasattr(data_iterable, "__iter__"):
             raise SyntaxError(
                 "Non-iterable encountered in rows method. Can only accept "
-                "an iterable of data for adding row data in bulk."
-            )
+                "an iterable of data for adding row data in bulk.")
 
         for row in data_iterable:
             if isinstance(row, dict):
@@ -1194,8 +1205,7 @@ class Insert:
             raise SyntaxError(
                 "Unable to mix positional args and kwargs in base call "
                 "for Insert. Use only positional args if setting the columns "
-                "or use kwargs if adding a row as a shortcut."
-            )
+                "or use kwargs if adding a row as a shortcut.")
 
         if args:
             self.set_columns(*args)
@@ -1226,7 +1236,8 @@ class Update:
             self._from = Table(table, self._db)
         else:
             type_given = type(table).__name__
-            raise SyntaxError(f"Unexpected data type encountered: {type_given}.")
+            raise SyntaxError(
+                f"Unexpected data type encountered: {type_given}.")
 
         return self
 
@@ -1260,8 +1271,7 @@ class Update:
             if not allow_no_condition:
                 raise SchemaError(
                     "No condition provided for Update. If this is "
-                    "intentional, use the 'allow_no_condition' kwarg."
-                )
+                    "intentional, use the 'allow_no_condition' kwarg.")
 
             else:
                 cond_values = []
@@ -1305,7 +1315,8 @@ class Update:
         if not columns:
             return self._columns
         if self._data:
-            raise SchemaError("Columns must be declared before values are defined.")
+            raise SchemaError(
+                "Columns must be declared before values are defined.")
 
         self._columns = columns
         return self
@@ -1322,17 +1333,16 @@ class Update:
                 "Unable to mix positional args and kwargs when adding row "
                 "data. Use only positional args if columns are set or all "
                 "columns will be specified. Use only kwargs if adding row "
-                "data to specify relevant columns."
-            )
+                "data to specify relevant columns.")
 
         if values and not self._columns:
             raise SyntaxError(
                 "Columns must be declared before being able to use "
-                "positional args for this method."
-            )
+                "positional args for this method.")
 
         if values:
-            dict_values = dict(zip_longest(self._columns, values))  # type: ignore
+            dict_values = dict(zip_longest(self._columns,
+                                           values))  # type: ignore
             if None in dict_values:
                 raise SyntaxError(
                     "Too many values given "
@@ -1349,8 +1359,7 @@ class Update:
             raise SyntaxError(
                 "Unable to mix positional args and kwargs in base call "
                 "for Update. Use only positional args if setting the columns "
-                "or use kwargs if adding a row as a shortcut."
-            )
+                "or use kwargs if adding a row as a shortcut.")
 
         if args:
             self.columns(*args)

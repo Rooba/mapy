@@ -14,3 +14,13 @@
 **/http_db_client.py
 **/tests
 **/.style.yapf
+**/venv/
+**/.pytest_cache/
+**/.idea/
+mini_shanda.py
+config_test.yaml
+__config_test.yaml
+config.yaml
+mapy.sql
+**/.idea/**
+poetry.lock

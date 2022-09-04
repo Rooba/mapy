@@ -1,7 +1,8 @@
 from asyncio import Queue
 from os.path import isfile
 
-from mapy.net import CSendOps, Packet
+from mapy.opcodes import CSendOps
+from mapy.packet import Packet
 from mapy.scripts.script_base import ScriptBase
 from mapy.scripts.npc.npc_context import NpcContext
 
