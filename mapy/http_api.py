@@ -1,7 +1,8 @@
 from json import dumps
-from sanic import Sanic, Blueprint, json
-from sanic.blueprint_group import BlueprintGroup
 from re import compile
+
+from sanic import Blueprint, Sanic, json
+from sanic.blueprint_group import BlueprintGroup
 
 mem_re = compile(r"^[A-Z_]+$")
 

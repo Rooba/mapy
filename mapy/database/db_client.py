@@ -11,13 +11,31 @@ from ..constants import ItemType
 from ..game import Account as Account_
 from ..game import CharacterEntry
 from ..game import Field as _Field
-from ..game import (Foothold, FuncKey, ItemSlotBundle, ItemSlotEquip,
-                    MapleCharacter, Mob, Npc, Portal, SkillEntry,
-                    SkillLevelData)
+from ..game import (
+    Foothold,
+    FuncKey,
+    ItemSlotBundle,
+    ItemSlotEquip,
+    MapleCharacter,
+    Mob,
+    Npc,
+    Portal,
+    SkillEntry,
+    SkillLevelData,
+)
 from ..logger import Logger
 from ..tools import get
-from .schema import (Column, Insert, IntColumn, ListArguments, Query, Schema,
-                     StringColumn, Table, Update)
+from .schema import (
+    Column,
+    Insert,
+    IntColumn,
+    ListArguments,
+    Query,
+    Schema,
+    StringColumn,
+    Table,
+    Update,
+)
 from .structure import RMDB, Maplestory
 
 
@@ -27,6 +45,9 @@ def match_item(inventory_type):
             return ItemSlotEquip
         case _:
             return ItemSlotBundle
+
+
+logger = Logger("DB Client")
 
 
 class SchemaError(PostgresError):
@@ -108,8 +129,7 @@ class DatabaseClient:
         # await Maplestory.create()
 
     async def stop(self):
-
-        if hasattr(self, "pool"):
+        if self.pool:
             if not self.pool._closed:
                 await wait_for(self.pool.close(), 5.0)
 
@@ -240,7 +260,6 @@ def get_chars(fn):
 
 
 class QueryTable(metaclass=ABCMeta):
-
     def __init__(self):
         self._db = None
         self._table = ""
@@ -303,7 +322,7 @@ class Account(QueryTable):
         # Loading (if exists) the account onto the client object
         # Needs to be lazily loaded and not hot loaded every call
         if not self.username or self.id:
-            Logger.error("Missing username or password to search by")
+            logger.info("Missing username or password to search by")
 
         search = {
             a: getattr(self, a)
@@ -660,7 +679,7 @@ class Items:
 
         item_type = item_id // 1000000
 
-        query = await (self.query("rmdb.item_data"))
+        query = await (self._db.query("rmdb.item_data"))
 
         if item_type == 1:
             query.inner_join("rmdb.item_equip_data", "item_id").where(item_id=item_id)

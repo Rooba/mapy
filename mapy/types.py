@@ -1,13 +1,25 @@
+import asyncio
 from abc import ABCMeta, abstractmethod
-from asyncio import AbstractEventLoop, Event, Lock, Queue, create_task
+from asyncio import AbstractEventLoop, Event, Lock, Queue, Task, get_event_loop
 from datetime import datetime
-from enum import EnumMeta, IntEnum
+from enum import Enum, EnumMeta, IntEnum
 from inspect import ismethod
 from io import BytesIO
 from ipaddress import IPv4Address
 from random import SystemRandom
 from socket import socket
-from typing import IO, Any, Callable, Coroutine, Generator, Literal, NewType, TypeVar
+from types import new_class
+from typing import (
+    IO,
+    Any,
+    Callable,
+    Coroutine,
+    Generator,
+    Literal,
+    NewType,
+    Type,
+    TypeVar,
+)
 from uuid import UUID, uuid4
 
 from attrs import define, field
@@ -21,41 +33,42 @@ rng = SystemRandom("570279009")
 
 sock: socket = field(default=socket())
 
-
-async def _d():
-    ...
-
-
-_t = create_task(_d())
-
-TaskType = type(_t)
-_t.cancel()
-del _t, _d
+TaskType = NewType("TaskType", Task)
 
 T = TypeVar("T")
 Schema = Any
 Column = Any
 Table = Any
-_Items = NewType("_Items")
-Items = _Items
-_Skills = NewType("_Skills")
-Skills = _Skills
-_World = NewType("_World")
-World = _World
-_Packet = NewType("_Packet")
-Packet = _Packet
+_Items = Type["GWItem"]
+_Skills = Type["Skill"]
+_World = Type["World"]
+_Packet = Type["Packet"]
+
 MapleCharacter = TypeVar("MapleCharacter", bound="MapleCharacter")
 
 
-class OpCode(Any, IntEnum, metaclass=EnumMeta):
+class Foo(Enum):
     ...
 
 
-class CRecvOps(OpCode):
+class T_c(EnumMeta):
     ...
 
 
-class CSendOps(OpCode):
+_C = object()
+F = new_class("F", (type(_C),), exec_body=lambda ns: {"__dict__": Any, "__all__": ns})
+
+
+class OpCode(F.__dict__["__dict__"].__objclass__, Enum):
+    Any: Any
+    ...
+
+
+class CRecvOps(OpCode, Enum):
+    ...
+
+
+class CSendOps(OpCode, Enum):
     ...
 
 
@@ -106,19 +119,7 @@ class Mapping(metaclass=ABCMeta):
         return str({k: v for k, v in self.items()})
 
 
-class StatModifiers(IntEnum):
-    # FIXME: Not encoding anything atm
-
-    def __new__(cls, value: int, bit_size: int):
-        cls.__bit_size__ = bit_size
-        cls._value_ = value
-        return super().__new__(cls, value)
-
-    def encode(self, packet: Packet, value: int):
-        # enc = {1: "byte", 2: "short", 4: "int", 8: "long"}.get(self.__bit_size__)
-        # getattr(packet, f"encode_{enc}")()
-        ...
-
+class StatModifiers(int, Enum):
     SKIN = 0x1, 1
     FACE = 0x2, 4
     HAIR = 0x4, 4
@@ -146,6 +147,18 @@ class StatModifiers(IntEnum):
     POP = 0x20000, 2
 
     MONEY = 0x40000, 4
+
+    # FIXME: Not encoding anything atm
+
+    def __new__(cls, value: int, bit_size: int):
+        cls.__bit_size__ = bit_size
+        cls._value_ = value
+        return super().__new__(cls, value)
+
+    def encode(self, packet: "Packet", value: int):
+        # enc = {1: "byte", 2: "short", 4: "int", 8: "long"}.get(self.__bit_size__)
+        # getattr(packet, f"encode_{enc}")()
+        ...
 
 
 @define
@@ -266,6 +279,53 @@ class NpcScript(metaclass=ABCMeta):
         ...
 
 
+class Skill:
+    def __init__(self, id: int):
+        ...
+
+
+class SkillLevel:
+    def __init__(self, **kwargs):
+        ...
+
+
+@define
+class SkillLevelData(object):
+    flags: list[int] = field(factory=list)
+    weapon: int = 0
+    sub_weapon: int = 0
+    max_level: int = 0
+    base_max_level: int = 0
+    skill_type: list = field(factory=list)
+    element: str = field(factory=str)
+    mob_count: str = field(factory=str)
+    hit_count: str = field(factory=str)
+    buff_time: str = field(factory=str)
+    mp_cost: str = field(factory=str)
+    hp_cost: str = field(factory=str)
+    damage: str = field(factory=str)
+    fixed_damage: str = field(factory=str)
+    critical_damage: str = field(factory=str)
+    _levels: dict = field(factory=dict)
+    mastery: str = field(factory=str)
+
+    def __post_init__(self):
+        self._levels = {}
+        for i in range(self.max_level):
+            kwargs = {}
+            for name, value in self.__dict__.items():
+                if isinstance(value, str):
+                    # kwargs[name] = rtl_equation(value, i)
+                    pass
+                else:
+                    kwargs[name] = value
+
+            self._levels[i] = SkillLevel(**kwargs)
+
+    def __getitem__(self, index):
+        return self._levels[index]
+
+
 @define(kw_only=True)
 class SkillEntry(object):
     id: int = 0
@@ -275,7 +335,7 @@ class SkillEntry(object):
     expiration: int = 0
     level_data: list = field(factory=lambda: list(bytearray(10)))
 
-    def encode(self, packet: Packet) -> None:
+    def encode(self, packet: "Packet") -> None:
         packet.encode_int(self.id)
         packet.encode_int(self.level)
         packet.encode_long(0)  # skill.expiration
@@ -513,8 +573,8 @@ class DatabaseClient(Loggable, Mapping, metaclass=ABCMeta):
         self._dsn = f"postgres://{user}:{password}@{host}:{port}/{database}"
 
         # WZ Data
-        self._items: Items
-        self._skills: Skills
+        self._items: GWItemTable
+        self._skills: SkillsTable
 
     @property
     def dsn(self):
@@ -574,11 +634,11 @@ class DatabaseClient(Loggable, Mapping, metaclass=ABCMeta):
         ...
 
     @property
-    def items(self) -> Items:
+    def items(self) -> GWItemTable:
         return self._items
 
     @property
-    def skills(self) -> Skills:
+    def skills(self) -> SkillsTable:
         return self._skills
 
 
@@ -763,7 +823,7 @@ class ServerBase(Loggable, metaclass=ABCMeta):
         self._packet_handlers: list
         self._ready: Event
         self._alive: Event
-        self._acceptor: TaskType
+        self._acceptor: asyncio.tasks._FutureLike
         self._serv_sock: socket
 
     @property
@@ -844,33 +904,33 @@ class WvsGame(ServerBase):
     async def get_field(self, field_id: Field):
         ...
 
-    @packet_handler(CRecvOps.CP_MigrateIn)
+    @packet_handler(CRecvOps)
     async def handle_migrate_in(self, client: ClientBase, packet: Packet):
         ...
 
-    @packet_handler(CRecvOps.CP_UserMove)
+    @packet_handler(CRecvOps)
     async def handle_user_move(self, client: ClientBase, packet: Packet):
         ...
 
-    @packet_handler(CRecvOps.CP_UserSkillUseRequest)
+    @packet_handler(CRecvOps)
     async def handle_skill_use_request(self, client: ClientBase, packet: Packet):
         ...
 
-    @packet_handler(CRecvOps.CP_UserSelectNpc)
+    @packet_handler(CRecvOps)
     async def handle_user_select_npc(self, client: ClientBase, packet: Packet):
         ...
 
-    @packet_handler(CRecvOps.CP_UserScriptMessageAnswer)
+    @packet_handler(CRecvOps)
     async def handle_user_script_message_answer(
         self, client: ClientBase, packet: Packet
     ):
         ...
 
-    @packet_handler(CRecvOps.CP_UpdateGMBoard)
+    @packet_handler(CRecvOps)
     async def handle_update_gm_board(self, client: ClientBase, packet: Packet):
         ...
 
-    @packet_handler(CRecvOps.CP_RequireFieldObstacleStatus)
+    @packet_handler(CRecvOps)
     async def handle_require_field_obstacle(self, client: ClientBase, packet: Packet):
         ...
 
@@ -892,50 +952,50 @@ class WvsLogin(ServerBase):
     async def client_connect(self, client: ClientBase) -> None:
         ...
 
-    @packet_handler(CRecvOps.CP_CreateSecurityHandle)
+    @packet_handler(CRecvOps)
     async def create_secuirty_heandle(self, client: ClientBase, packet) -> None:
         ...
 
-    @packet_handler(CRecvOps.CP_CheckPassword)
+    @packet_handler(CRecvOps)
     async def check_password(self, client: ClientBase, packet: Packet) -> None:
         ...
 
     async def send_world_information(self, client: ClientBase) -> None:
         ...
 
-    @packet_handler(CRecvOps.CP_WorldRequest)
+    @packet_handler(CRecvOps)
     async def world_request(self, client: ClientBase, packet: Packet):
         ...
 
-    @packet_handler(CRecvOps.CP_WorldInfoRequest)
+    @packet_handler(CRecvOps)
     async def world_info_request(self, client: ClientBase, packet: Packet):
         ...
 
-    @packet_handler(CRecvOps.CP_CheckUserLimit)
+    @packet_handler(CRecvOps)
     async def check_user_limit(self, client: ClientBase, packet: Packet):
         ...
 
-    @packet_handler(CRecvOps.CP_SelectWorld)
+    @packet_handler(CRecvOps)
     async def select_world(self, client: ClientBase, packet: Packet):
         ...
 
-    @packet_handler(CRecvOps.CP_LogoutWorld)
+    @packet_handler(CRecvOps)
     async def logout_world(self, client: ClientBase, packet: Packet):
         ...
 
-    @packet_handler(CRecvOps.CP_CheckDuplicatedID)
+    @packet_handler(CRecvOps)
     async def check_duplicated_id(self, client: ClientBase, packet: Packet):
         ...
 
-    @packet_handler(CRecvOps.CP_ViewAllChar)
+    @packet_handler(CRecvOps)
     async def view_all_characters(self, client: ClientBase, packet: Packet):
         ...
 
-    @packet_handler(CRecvOps.CP_CreateNewCharacter)
+    @packet_handler(CRecvOps)
     async def create_new_character(self, client: ClientBase, packet: Packet):
         ...
 
-    @packet_handler(CRecvOps.CP_SelectCharacter)
+    @packet_handler(CRecvOps)
     async def select_character(self, client: ClientBase, packet: Packet):
         ...
 
@@ -946,7 +1006,7 @@ class WvsShop(ServerBase):
 
 
 class World(metaclass=ABCMeta):
-    def __init__(self: World, id: int):
+    def __init__(self: "World", id: int):
         self._world: Worlds
         self._channels: list[World]
         self._flag: WorldFlag

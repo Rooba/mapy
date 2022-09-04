@@ -8,8 +8,7 @@ from .packet import ByteBuffer, Packet, packet_handler
 
 
 __all__ = (
-    "server",
-    "constants",
+    "server", "constants",
     "CPacket",
     "Logger",
     "Packet",

@@ -1,5 +1,4 @@
 from asyncio import sleep
-
 from dataclasses import dataclass, is_dataclass
 from random import randint
 

@@ -1,12 +1,10 @@
 from enum import Enum
 from io import BytesIO
 from struct import pack, unpack
-from typing import Any, Callable, Coroutine
-from typing import TypeVar, ParamSpec
+from typing import Any, Callable, Coroutine, ParamSpec, TypeVar
 
 from .opcodes import CRecvOps, CSendOps, OpCode
 from .tools import to_string
-
 
 WvsCenter = TypeVar("WvsCenter")
 P_ = ParamSpec("P_")

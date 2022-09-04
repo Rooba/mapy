@@ -1,4 +1,4 @@
-from enum import EnumMeta, IntEnum
+from enum import IntEnum
 
 
 class OpCode(IntEnum):

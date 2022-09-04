@@ -1,6 +1,4 @@
 import asyncio
-from concurrent.futures import ThreadPoolExecutor
-from ipaddress import IPv4Address
 import signal
 from abc import abstractmethod
 from asyncio import (
@@ -11,23 +9,18 @@ from asyncio import (
     new_event_loop,
     sleep,
 )
-from pathlib import Path
-from sanic.server.protocols.http_protocol import Http3Protocol, HttpProtocol
 from collections import Counter
-
-# from configparser import ConfigParser
-# from copy import deepcopy
 from datetime import datetime
 from inspect import getmembers
 from io import BytesIO
+from ipaddress import IPv4Address
+from pathlib import Path
 from socket import AF_INET, IPPROTO_TCP, SOCK_STREAM, TCP_NODELAY, socket
 from time import time
 from types import new_class
 from typing import Any, Coroutine, Literal, TypeAlias
 
-from yaml import Dumper, Loader, YAMLObject, add_representer, dump, load
-
-from .crypto.maple_iv import MapleIV
+from yaml import Dumper, Loader, YAMLObject, dump, load
 
 from .client import WvsGameClient, WvsLoginClient
 from .constants import (
@@ -40,16 +33,15 @@ from .constants import (
     is_event_vehicle_skill,
 )
 from .cpacket import CPacket
+from .crypto.maple_iv import MapleIV
 from .database.db_client import DatabaseClient
 from .game.character import MapleCharacter
 from .http_api import http_api
 from .logger import Logger
 from .opcodes import CRecvOps
 from .packet import Packet, PacketHandler, packet_handler
-from .scripts.npc.npc_script import NpcScript
+from .scripting import NpcScript
 
-_WvsLogin: TypeAlias = "WvsLogin"
-_WvsShop: TypeAlias = "WvsShop"
 _RetAddress: TypeAlias = tuple[str, int]
 
 global _WvsCenter
@@ -163,7 +155,7 @@ class ChannelConfig(YAMLObject):
             "meso": 1.0,
             "drop": 1.5,
             "afk_exp": 1.5,
-            "active_party_exp": 2.0,  # this is the (party xp gained from party members)
+            "active_party_exp": 2.0,
             "quest_exp": 2.0,
             "pq_exp": 1.5,
             "mob_respawn_delay": 1.5,
@@ -180,11 +172,10 @@ class ChannelConfig(YAMLObject):
             "death_exp_loss": 5.0,
         },
         "extra": {
-            "ticker_message": "Welcome to cygnus, make sure to have fun and enjoy your stay!",
+            "ticker_message": "Welcome!",
             "global_npc": False,
             "map_teles": False,
             "hyper_rock_limitations": [18000000000],
-            "fishing_rewards": [4111111],
             "enabled_events": ["ZakumPQ", "HorntailPQ", "PinkBean"],
         },
         "id": 0,
@@ -339,6 +330,10 @@ class WvsCenter:
         self._worlds = {}
         self._logger = Logger(self)
         self._load_config()
+
+    @property
+    def pending_logins(self):
+        return self._pending_logins
 
     @property
     def data(self) -> "DatabaseClient":
@@ -631,8 +626,8 @@ class ServerBase:
             f"{self.name} {packet.name} {client.ip} {packet.to_string()}"
         )
 
-        for packet_handler in self._packet_handlers:
-            if packet_handler.op_code == packet.op_code:
+        for __packet_handler in self._packet_handlers:
+            if __packet_handler.op_code == packet.op_code:
                 get_running_loop().create_task(
                     packet_handler.callback(self, client, packet)
                 )
@@ -719,7 +714,11 @@ class WvsGame(ServerBase, ChannelConfig):
         login_req.character._client = client
 
         client.character = await self.data.characters.load(uid, client)
-        await (await self.get_field(client.character.field_id)).add(client)  # type: ignore
+        field = await self.get_field(client.character.field_id)
+        if not field:
+            return
+
+        await field.add(client)
 
         await client.send_packet(CPacket.claim_svr_changed(True))
         await client.send_packet(CPacket.set_gender(client.character.stats.gender))
@@ -974,9 +973,13 @@ class WvsLogin(ServerBase):
 
         uid = packet.decode_int()
         character = next((c for c in client.avatars if c.id == uid), None)
-        port = _WvsCenter.worlds[client.world_id][client.channel_id].port  # type: ignore
+        channel = _WvsCenter.worlds[client.world_id][client.channel_id]
+        if not channel:
+            return
 
-        _WvsCenter.pending_logins.append(  # type: ignore
+        port = channel.port
+
+        _WvsCenter.pending_logins.append(
             PendingLogin(character, client.account, datetime.now())
         )
 

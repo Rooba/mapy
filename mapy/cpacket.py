@@ -1,9 +1,7 @@
-from .constants import *
+from .constants import Network
 
 from .opcodes import CSendOps
 from .packet import Packet
-
-# class PendingLogin(type):
 
 
 class CPacket:

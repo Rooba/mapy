@@ -1,4 +1,4 @@
-from enum import Enum, IntEnum
+from enum import IntEnum
 
 
 class Worlds(IntEnum):
@@ -29,7 +29,6 @@ class Network:
     HOST_IP = "127.0.0.1"
     SERVER_ADDRESS = bytearray([127, 0, 0, 1])
 
-    # CENTER_PORT = center.sock
     LOGIN_PORT = 8484
     __GAME_PORT = 8585
     SHOP_PORT = 8787
@@ -37,14 +36,6 @@ class Network:
     USE_DATABASE = False
     CHANNEL_COUNT = 3
     ACTIVE_WORLDS = [Worlds.BELLOCAN, Worlds.EL_NIDO, Worlds.GALACIA]
-    # DB_HOST = ""
-    # DB_PASS = ""
-    # DB_PORT = 5432
-    # DB_DATABASE = ""
-    # DB_SCHEMA = ""
-
-    # * Optionally:
-    # DSN = "postgres://user:password@host:port/database"
 
     USE_HTTP_API = True
     HTTP_API_ROUTE = "/api"
@@ -59,9 +50,6 @@ class Network:
 
 
 class Config:
-    # VERSION = 105
-    # SUB_VERSION = "1"
-    # LOCALE = 8
 
     VERSION = 95
     SUB_VERSION = "1"

@@ -1,8 +1,7 @@
-from enum import Enum
+from enum import Enum, EnumMeta
 
 
-class Meta(Enum):
-
+class Meta(EnumMeta):
     def __str__(self):
         return f"{self.__class__.__name__.lower()}.{super().__str__()}"
 
@@ -18,13 +17,13 @@ class Meta(Enum):
 
 
 class Schema(Meta):
-
     def __new__(cls, value):
-        value.schema = cls.__name__.lower()
-        value.primary_key = value.__dict__.get("__primary_key__")
-        value.foreign_keys = value.__dict__.get("__foreign_keys__")
-        value.columns = [item.lower() for item in value._member_names_]
-        return value
+        cls.schema = cls.__name__.lower()
+        cls.primary_key = value.__dict__.get("__primary_key__")
+        cls.foreign_keys = value.__dict__.get("__foreign_keys__")
+        cls.columns = [item.lower() for item in value._member_names_]
+        super().__new__(cls, value)
+        return cls
 
     def __str__(self):
         return f"{self.__class__.__name__.lower()}.{super().__str__()}"
@@ -36,62 +35,20 @@ class Schema(Meta):
 
     @classmethod
     def create(cls):
-        # async def create(db):
-        #     schema = db.schema(cls.__name__.lower())
-        #     await schema.create(skip_if_exists=False)
-        #     fks = []
-        #     for table in cls:
-        #         t = db.table(table._name_.lower(), schema=schema)
-        #         if await t.exists(): continue
-        #         cols = []
-        #         for c in table:
-        #             primary_key = c.getattr('primary_key', False)
-        #             col = Column(c._name_.lower(), c.data_type,
-        #                          primary_key=primary_key, **c.options)
-        #             if t.foreign_keys and c.name
-        #                   in getattr(table, 'foreign_keys', []):
-        #                 fks.append(types.ForeignKey(t, col, sql_type=c.data_type))
-        #             cols.append(col)
-        #         await t.create(*cols)
-        #     for fkey in fks:
-        #         await db.execute_transaction(fk.to_sql())
-
-        # return create
-        pass
+        ...
 
 
-class Table(int, Meta):
+class Table(int, Enum, metaclass=Meta):
     _ignore_ = "data_type"
 
     def __new__(cls, data_type, options=None):
-        value = len(cls.__members__) + 1
+        value = len(cls._member_names_) + 1
+
+        cls._value_ = value
+        cls.data_type = data_type
+
+        cls.options = options if options else {}
         enum_class = super().__new__(cls, value)
-
-        enum_class._value_ = value
-        enum_class.data_type = data_type
-
-        # if data_type in ['integer', 'serial']:
-        #     enum_class.data_type = types.Integer(auto_increment=data_type == 'serial')
-        # elif data_type == 'smallint':
-        #     enum_class.data_type = types.Integer(small=True)
-        # elif data_type == 'bigint':
-        #     enum_class.data_type = types.Integer(big=True)
-        # elif data_type in ['varchar', 'text']:
-        #     enum_class.data_type = types.String()
-        # elif data_type == 'jsonb':
-        #     enum_class.data_type = types.JSON()
-        # elif data_type == 'double':
-        #     enum_class.data_type = types.Double()
-        # elif data_type == 'boolean':
-        #     enum_class.data_type = types.Boolean()
-        # elif data_type == 'date':
-        #     enum_class.data_type = types.Date()
-
-        # from re import search
-        # if search(r'(\[\])', data_type):
-        #     enum_class.data_type = types.ArraySQL(enum_class.data_type)
-
-        enum_class.options = options if options else {}
         return enum_class
 
 
@@ -138,7 +95,7 @@ class ItemConsumeableData(Table):
     CARNIVAL_SKILL = "smallint"
     EXPERIENCE = "integer"
 
-    __primary_key__ = ("ITEM_ID", )
+    __primary_key__ = ("ITEM_ID",)
 
 
 class ItemData(Table):
@@ -163,7 +120,7 @@ class ItemData(Table):
     ADD_TIME = "smallint"
     SLOT_INDEX = "smallint"
 
-    __primary_key__ = ("ITEM_ID", )
+    __primary_key__ = ("ITEM_ID",)
 
 
 class ItemEquipData(Table):
@@ -223,7 +180,7 @@ class ItemPetData(Table):
     EVOLUTION_LEVEL = "smallint"
     FLAGS = "varchar[]"
 
-    __primary_key__ = ("ITEM_ID", )
+    __primary_key__ = ("ITEM_ID",)
 
 
 class ItemRechargeableData(Table):
@@ -509,7 +466,7 @@ class Account(Table):
     ADMIN = ("bool", {"default": 0})
     GENDER = "bool"
 
-    __primary_key__ = ("ID", )
+    __primary_key__ = ("ID",)
     # __unqiue_index__ = ("USERNAME")
 
 
@@ -549,7 +506,7 @@ class Character(Table):
     EXTEND_SP = "smallint[]"
     WORLD_ID = "smallint"
 
-    __primary_key__ = ("ID", )
+    __primary_key__ = ("ID",)
     __foreign_keys__ = {"account_id": "accounts.id"}
 
 
@@ -590,9 +547,7 @@ class InventoryEquipment(Table):
     RUC = "smallint"
 
     __primary_key__ = "inventory_item_id"
-    __foreign_keys__ = {
-        "INVENTORY_ITEM_ID": "inventory_items.inventory_item_id"
-    }
+    __foreign_keys__ = {"INVENTORY_ITEM_ID": "inventory_items.inventory_item_id"}
 
 
 class InventoryItems(Table):

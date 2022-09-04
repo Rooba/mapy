@@ -2,14 +2,12 @@ from attrs import define, field
 
 
 class Skill:
-
     def __init__(self, id):
         self._id = id
         self._skill_level_data = []
 
 
 class SkillLevel:
-
     def __init__(self, **kwargs):
         for key, value in kwargs.items():
             setattr(self, key, value)
@@ -32,7 +30,7 @@ class SkillLevelData(object):
     damage: str = field(factory=str)
     fixed_damage: str = field(factory=str)
     critical_damage: str = field(factory=str)
-    _levels: int = 0
+    _levels: dict = field(factory=dict)
     mastery: str = field(factory=str)
 
     def __post_init__(self):
