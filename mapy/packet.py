@@ -1,16 +1,14 @@
 from enum import Enum
 from io import BytesIO
 from struct import pack, unpack
-from types import MethodType
 from typing import Any, Callable, Coroutine
-from typing import Type, TypeAlias, TypeVar, ParamSpec
+from typing import TypeVar, ParamSpec
 
 from .opcodes import CRecvOps, CSendOps, OpCode
 from .tools import to_string
 
 
 WvsCenter = TypeVar("WvsCenter")
-_WT = TypeVar("_WT", bound=WvsCenter)
 P_ = ParamSpec("P_")
 
 # Junk codes for colorizing incoming packets from custom client
@@ -177,9 +175,7 @@ class PacketHandler:
         self.op_code = kwargs.get("op_code")
 
 
-def packet_handler(
-    op_code=None,
-) -> Coroutine[MethodType, Any, Coroutine[Packet, Any, Any]]:
+def packet_handler(op_code=None) -> Any:
     def wrap(func: Callable[P_, Coroutine]):
 
         return PacketHandler(func.__name__, func, op_code=op_code)

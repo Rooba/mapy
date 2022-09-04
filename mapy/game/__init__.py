@@ -1,5 +1,4 @@
-from .account import Account
-from .character import CharacterEntry, FuncKey, MapleCharacter, SkillEntry
+from .character import CharacterEntry, FuncKey, MapleCharacter, SkillEntry, Account
 from .field import Field, Foothold, Mob, Npc, Portal
 from .item import ItemSlotBundle, ItemSlotEquip
 from .skill import SkillLevelData

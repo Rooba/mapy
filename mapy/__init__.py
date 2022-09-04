@@ -1,5 +1,5 @@
 from . import server
-from . import constants
+from . import constants, types
 
 from .cpacket import CPacket
 from .logger import Logger
@@ -16,4 +16,5 @@ __all__ = (
     "ByteBuffer",
     "CRecvOps",
     "CSendOps",
+    "types",
 )

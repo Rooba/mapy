@@ -11,7 +11,6 @@ from ..tools import TagPoint
 
 
 class MovePath:
-
     def __init__(self, x=0, y=0, foothold=0, position=0):
         self.x = x
         self.y = y
@@ -55,8 +54,10 @@ class MovePath:
                 break
 
     def __str__(self):
-        return (f"Position: {self.x},{self.y} - Foothold: {self.foothold} "
-                f"- Stance: {self.stance}")
+        return (
+            f"Position: {self.x},{self.y} - Foothold: {self.foothold} "
+            f"- Stance: {self.stance}"
+        )
 
 
 @define
@@ -98,14 +99,16 @@ class Portal(object):
     x: int = 0
     y: int = 0
 
-    def __init__(self,
-                 id: int = 0,
-                 name: str = None,
-                 type_: int = 0,
-                 destination: int = 0,
-                 destination_label: str = None,
-                 x: int = 0,
-                 y: int = 0):
+    def __init__(
+        self,
+        id: int = 0,
+        name: str = "",
+        type_: int = 0,
+        destination: int = 0,
+        destination_label: str = "",
+        x: int = 0,
+        y: int = 0,
+    ):
         self.id = id
         self.name = name or ""
         self.type = type_
@@ -121,20 +124,21 @@ class Portal(object):
 
 @define
 class Life(FieldObject):
-
-    def __init__(self,
-                 life_id: int = 0,
-                 life_type: str = None,
-                 foothold: int = 0,
-                 x: int = 0,
-                 y: int = 0,
-                 cy: int = 0,
-                 f: int = 0,
-                 hide: int = 0,
-                 rx0: int = 0,
-                 rx1: int = 0,
-                 mob_time: int = None,
-                 **_):
+    def __init__(
+        self,
+        life_id: int = 0,
+        life_type: str = "",
+        foothold: int = 0,
+        x: int = 0,
+        y: int = 0,
+        cy: int = 0,
+        f: int = 0,
+        hide: int = 0,
+        rx0: int = 0,
+        rx1: int = 0,
+        mob_time: int = 0,
+        **_,
+    ):
         self.life_id: int = life_id
         self.life_type: str = life_type or ""
         self.foothold: int = foothold
@@ -158,15 +162,17 @@ class Mob(Life):
     exp: int = 0
     physical_attack: int = 0
 
-    def __init__(self,
-                 mob_id: int = 0,
-                 hp: int = 0,
-                 mp: int = 0,
-                 hp_recovery: int = 0,
-                 mp_recovery: int = 0,
-                 exp: int = 0,
-                 physcial_attack: int = 0,
-                 **data):
+    def __init__(
+        self,
+        mob_id: int = 0,
+        hp: int = 0,
+        mp: int = 0,
+        hp_recovery: int = 0,
+        mp_recovery: int = 0,
+        exp: int = 0,
+        physcial_attack: int = 0,
+        **data,
+    ):
         super().__init__(**data)
         self.mob_id = mob_id
         self.hp = hp
@@ -212,7 +218,6 @@ class Mob(Life):
 
 @define
 class Npc(Life):
-
     def __init__(self, **data):
         super().__init__(**data)
         self.id = self.life_id
@@ -220,7 +225,6 @@ class Npc(Life):
 
 
 class Field:
-
     def __init__(self, map_id):
         self.map_id = map_id
         # self.characters = []
@@ -241,14 +245,16 @@ class Field:
 
         if client.sent_char_data:
             await client.send_packet(
-                CPacket.set_field(character, False, client.channel_id))
+                CPacket.set_field(character, False, client.channel_id)
+            )
 
         else:
             client.sent_char_data = True
             character.stats.portal = 0
 
             await client.send_packet(
-                CPacket.set_field(character, True, client.channel_id))
+                CPacket.set_field(character, True, client.channel_id)
+            )
 
         for _character in self.clients.characters:
             await client.send_packet(CPacket.user_enter_field(_character))
@@ -276,8 +282,7 @@ class Field:
                 None,
             )
             if controller:
-                await controller.send_packet(
-                    CPacket.mob_change_controller(mob, 0))
+                await controller.send_packet(CPacket.mob_change_controller(mob, 0))
 
         mob.controller = client.character.id
         await client.send_packet(CPacket.mob_change_controller(mob, 1))
@@ -295,7 +300,6 @@ class Field:
 
 
 class MobPool(ObjectPool):
-
     def __init__(self, field):
         super().__init__(field)
         self.spawns = []
@@ -328,7 +332,6 @@ class NpcPool(ObjectPool):
 
 
 class UserPool(ObjectPool):
-
     def add(self, client):
         super().add(client)
         client.character.field = self.field
@@ -342,7 +345,6 @@ class UserPool(ObjectPool):
 
 
 class PortalManager:
-
     def __init__(self):
         self.portals = []
 
@@ -362,7 +364,6 @@ class PortalManager:
 
 
 class FootholdManager:
-
     def __init__(self):
         self.footholds = []
 

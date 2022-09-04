@@ -31,6 +31,7 @@ class ItemSlotBase(object):
 
     item_id: int = 0
     item_uuid: UUID = uuid4()
+    cash_serial: int = 0
     source_type: int = 0
     expire: int = 0
     quantity: int = 0
@@ -47,10 +48,10 @@ class ItemSlotBase(object):
         """
 
         packet.encode_int(self.item_id)
-        packet.encode_byte(self.cisn == 0)
+        packet.encode_byte(self.cash_serial == 0)
 
-        if self.cisn:
-            packet.encode_long(self.cisn)
+        if self.cash_serial:
+            packet.encode_long(self.cash_serial)
 
         packet.encode_long(0)
 
@@ -141,7 +142,7 @@ class ItemSlotEquip(ItemSlotBase):
         packet.encode_short(self.socket_1)
         packet.encode_short(self.socket_2)
 
-        if not self.cisn:
+        if not self.cash_serial:
             packet.encode_long(0)
 
         packet.encode_long(0)

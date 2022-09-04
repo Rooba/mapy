@@ -1,31 +1,36 @@
 from abc import ABCMeta, abstractmethod
-from asyncio import AbstractEventLoop, Event, Lock
+from asyncio import AbstractEventLoop, Event, Lock, Queue, create_task
 from datetime import datetime
 from enum import EnumMeta, IntEnum
+from inspect import ismethod
 from io import BytesIO
 from ipaddress import IPv4Address
 from random import SystemRandom
 from socket import socket
-from types import (
-    MethodDescriptorType,
-    MethodType,
-    MethodWrapperType,
-    WrapperDescriptorType,
-)
 from typing import IO, Any, Callable, Coroutine, Generator, Literal, NewType, TypeVar
 from uuid import UUID, uuid4
 
 from attrs import define, field
 from typing_extensions import Self
 
-from .constants import WorldFlag, Worlds
-from .game.character import PlayerModifiers, Stats
+from .constants import WorldFlag, Worlds, is_extend_sp_job
 from .game.inventory import InventoryManager
 from .logger import Logger
 
 rng = SystemRandom("570279009")
 
 sock: socket = field(default=socket())
+
+
+async def _d():
+    ...
+
+
+_t = create_task(_d())
+
+TaskType = type(_t)
+_t.cancel()
+del _t, _d
 
 T = TypeVar("T")
 Schema = Any
@@ -39,19 +44,10 @@ _World = NewType("_World")
 World = _World
 _Packet = NewType("_Packet")
 Packet = _Packet
+MapleCharacter = TypeVar("MapleCharacter", bound="MapleCharacter")
 
 
-class Loggable(ABCMeta):
-    _logger: Logger
-
-    def __init__(self) -> None:
-        self._logger: Logger = Logger(self)
-
-    def log(self, message: str, level: int | str = 0):
-        self._logger.log(message, level)
-
-
-class OpCode(Any, IntEnum, EnumMeta):
+class OpCode(Any, IntEnum, metaclass=EnumMeta):
     ...
 
 
@@ -63,7 +59,297 @@ class CSendOps(OpCode):
     ...
 
 
-class MapleIV(ABCMeta):
+class Mapping(metaclass=ABCMeta):
+    @abstractmethod
+    def __init__(self):
+        raise NotImplementedError
+
+    def __getitem__(self, key):
+        if not hasattr(self, key) or key.startswith("__"):
+            return None
+        return getattr(self, key)
+
+    def __setitem__(self, key, value):
+        setattr(self, key, value)
+        self.__dict__[key] = value
+
+    def __getattribute__(self, __name: str) -> Any:
+        return object.__getattribute__(self, __name)
+
+    def __iter(self):
+        return tuple(
+            (k, v)
+            for k, v in self.__dict__.items()
+            if not k.startswith("__") and not ismethod(v) and not callable(v)
+        )
+
+    def __iter__(self):
+        return iter({k: v for k, v in self.__iter()})
+
+    def keys(self):
+        return iter({k: v for k, v in self.__iter()}.keys())
+
+    def values(self):
+        return iter({k: v for k, v in self.__iter()}.values())
+
+    def items(self):
+        return iter({k: v for k, v in self.__iter()}.items())
+
+    def __get__(self, key):
+        return getattr(self, key, None)
+
+    def __set__(self, key, value):
+        setattr(self, key, value)
+        self.__dict__[key] = value
+
+    def __repr__(self):
+        return str({k: v for k, v in self.items()})
+
+
+class StatModifiers(IntEnum):
+    # FIXME: Not encoding anything atm
+
+    def __new__(cls, value: int, bit_size: int):
+        cls.__bit_size__ = bit_size
+        cls._value_ = value
+        return super().__new__(cls, value)
+
+    def encode(self, packet: Packet, value: int):
+        # enc = {1: "byte", 2: "short", 4: "int", 8: "long"}.get(self.__bit_size__)
+        # getattr(packet, f"encode_{enc}")()
+        ...
+
+    SKIN = 0x1, 1
+    FACE = 0x2, 4
+    HAIR = 0x4, 4
+
+    PET = 0x8, 8
+    PET2 = 0x80000, 8
+    PET3 = 0x100000, 8
+
+    LEVEL = 0x10, 1
+    JOB = 0x20, 2
+    STR = 0x40, 2
+    DEX = 0x80, 2
+    INT = 0x100, 2
+    LUK = 0x200, 2
+
+    HP = 0x400, 4
+    MAX_HP = 0x800, 4
+    MP = 0x1000, 4
+    MAX_MP = 0x2000, 4
+
+    AP = 0x4000, 2
+    SP = 0x8000, 2
+
+    EXP = 0x10000, 4
+    POP = 0x20000, 2
+
+    MONEY = 0x40000, 4
+
+
+@define
+class Stats(Mapping):
+    id: int = 0
+    name: str = ""
+    world_id: int = 0
+
+    gender: int = 0
+    skin: int = 0
+    face: int = 20001
+    hair: int = 30003
+    level: int = 1
+    job: int = 0
+
+    _str: int = 4
+    dex: int = 4
+    _int: int = 4
+    luk: int = 4
+    hp: int = 50
+    m_hp: int = 50
+    mp: int = 5
+    m_mp: int = 5
+
+    ap: int = 0
+    sp: int = 0
+    extend_sp: list[int] = field(factory=lambda: list(bytearray(10)))
+
+    exp: int = 0
+    money: int = 0
+    fame: int = 0
+    temp_exp: int = 0
+
+    field_id: int = 100000000
+    portal: int = 0
+    play_time: int = 0
+    sub_job: int = 0
+    pet_locker: list[int] = field(factory=lambda: list(bytearray(3)))
+
+    def encode(self, packet) -> None:
+        packet.encode_int(self.id)
+        packet.encode_fixed_string(self.name, 13)
+        packet.encode_byte(self.gender)
+        packet.encode_byte(self.skin)
+        packet.encode_int(self.face)
+        packet.encode_int(self.hair)
+
+        for sn in self.pet_locker:
+            packet.encode_long(sn)
+
+        packet.encode_byte(self.level)
+        packet.encode_short(self.job)
+        packet.encode_short(self._str)
+        packet.encode_short(self.dex)
+        packet.encode_short(self._int)
+        packet.encode_short(self.luk)
+        packet.encode_int(self.hp)
+        packet.encode_int(self.m_hp)
+        packet.encode_int(self.mp)
+        packet.encode_int(self.m_mp)
+        packet.encode_short(self.ap)
+
+        # if player not evan
+        packet.encode_short(self.sp)
+        # else
+        # packet.encode_byte(len(self.extend_sp))
+
+        # for i, sp in enumerate(self.extend_sp):
+        #     packet.encode_byte(i)
+        #     packet.encode_byte(sp)
+
+        packet.encode_int(self.exp)
+        packet.encode_short(self.fame)
+        packet.encode_int(self.temp_exp)
+        packet.encode_int(self.field_id)
+        packet.encode_byte(self.portal)
+        packet.encode_int(self.play_time)
+        packet.encode_short(self.sub_job)
+
+
+class NpcScript(metaclass=ABCMeta):
+    def __init__(self, npc_id, client, default=False):
+        self._npc_id: int
+        self._context: Any
+        self._last_msg_type: Any
+        self._prev_msgs: list[str]
+        self._prev_id: int
+        self._response: Queue
+
+    @property
+    def npc_id(self) -> int:
+        ...
+
+    @property
+    def last_msg_type(self) -> Any:
+        ...
+
+    async def send_message(self, type_, action, flag=4, param=0) -> int:
+        ...
+
+    async def send_dialogue(self, type_, action, flag, param) -> None:
+        ...
+
+    async def reuse_dialogue(self, msg) -> None:
+        ...
+
+    async def proceed_back(self) -> None:
+        ...
+
+    async def proceed_next(self, resp) -> None:
+        ...
+
+    def end_chat(self) -> None:
+        ...
+
+    @staticmethod
+    def get_script(npc_id, client) -> "NpcScript":
+        ...
+
+
+@define(kw_only=True)
+class SkillEntry(object):
+    id: int = 0
+    level: int = 1
+    mastery_level: int = 1
+    max_level: int = 1
+    expiration: int = 0
+    level_data: list = field(factory=lambda: list(bytearray(10)))
+
+    def encode(self, packet: Packet) -> None:
+        packet.encode_int(self.id)
+        packet.encode_int(self.level)
+        packet.encode_long(0)  # skill.expiration
+
+
+class StatModifier(Mapping):
+    def __init__(self, character_stats: Stats):
+        self._modifiers: list[StatModifiers] = []
+        for k, v in character_stats.items():
+            self[k] = v
+
+    @property
+    def modifiers(self) -> list["StatModifiers"]:
+        return self._modifiers
+
+    @property
+    def flag(self):
+        _flag = 0
+        for mod in self._modifiers:
+            _flag |= mod.value
+        return _flag
+
+    def alter(self, **stats: dict[str, int | list[int]]):
+        for key, val in stats.items():
+            modifier = StatModifiers[key.upper()]
+            self._modifiers.append(modifier)
+            self[key] = val
+
+    def encode(self, packet):
+        packet.encode_int(self.flag)
+
+        for modifier in StatModifiers:
+            if modifier not in self._modifiers:
+                continue
+
+            if modifier is StatModifiers.SP:
+                if is_extend_sp_job(self._stats.job):
+                    packet.encode_byte(0)
+                else:
+                    packet.encode_short(self._stats.sp)
+            else:
+                getattr(packet, f"encode_{modifier.encode}")(
+                    packet, getattr(self._stats, modifier.name.lower())
+                )
+
+
+@define
+class PlayerModifiers(object):
+    character: MapleCharacter
+
+    def __init__(self, character: MapleCharacter):
+        self.character = character
+
+    async def stats(self, *, excl_req=True, **stats):
+        from .cpacket import CPacket
+
+        modifier = StatModifier(self.character.stats)
+        modifier.alter(**stats)
+
+        if modifier.modifiers:
+            await self.character.send_packet(CPacket.stat_changed(modifier, excl_req))
+
+
+class Loggable(metaclass=ABCMeta):
+    _logger: Logger
+
+    def __init__(self) -> None:
+        self._logger: Logger = Logger(self)
+
+    def log(self, message: str, level: int | str = 0):
+        self._logger.log(message, level)
+
+
+class MapleIV(metaclass=ABCMeta):
     _shuffle: bytearray = bytearray()
 
     def __init__(self, __vector: int) -> None:
@@ -84,7 +370,7 @@ class MapleIV(ABCMeta):
         ...
 
 
-class ByteBuffer(IO, ABCMeta):
+class ByteBuffer(IO, metaclass=ABCMeta):
     def encode(self, _bytes: bytes | bytearray):
         ...
 
@@ -171,7 +457,7 @@ def packet_handler(op_code=None) -> Any:
     return wrap
 
 
-class QueryTable(ABCMeta):
+class QueryTable(metaclass=ABCMeta):
     ...
 
 
@@ -211,13 +497,13 @@ class Field(QueryTable):
     ...
 
 
-class DatabaseClient(Loggable, ABCMeta):
+class DatabaseClient(Loggable, Mapping, metaclass=ABCMeta):
     _name = "Database Client"
 
     def __init__(
         self, /, user: str, password: str, host: str, port: int, database: str
     ):
-        super(Loggable, self).__init__(Loggable)
+        Loggable.__init__(self)
         self._user = user
         self._pass = password
         self._host = host
@@ -296,7 +582,7 @@ class DatabaseClient(Loggable, ABCMeta):
         return self._skills
 
 
-class WvsCenter(Loggable, ABCMeta):
+class WvsCenter(Loggable, metaclass=ABCMeta):
     """Server central coordinator for game / login servers
 
     Attributes
@@ -377,7 +663,7 @@ class WvsCenter(Loggable, ABCMeta):
         ...
 
 
-class ClientBase(Loggable, ABCMeta):
+class ClientBase(Loggable, metaclass=ABCMeta):
     def __init__(self, *args, **kwargs) -> None:
         self._socket: socket
         self._port: int
@@ -428,9 +714,8 @@ class ClientBase(Loggable, ABCMeta):
 
 class WvsLoginClient(ClientBase):
     def __init__(self, socket: socket):
-        super().__init__(socket)
         self._account: Account
-        self._avatars: list[Any] = []
+        self._avatars: list[Any]
 
     async def login(self, username: str, password: str) -> int:
         ...
@@ -449,7 +734,7 @@ class WvsGameClient(ClientBase):
         self._channel_id: int
         self._world_id
         self._character: MapleCharacter
-        self._npc_script: NPCScript
+        self._npc_script: NpcScript
         self._sent_char_data: bool
 
     @property
@@ -466,7 +751,7 @@ class WvsGameClient(ClientBase):
         ...
 
 
-class ServerBase(Loggable, ABCMeta):
+class ServerBase(Loggable, metaclass=ABCMeta):
     """Server base for center, channel, and login servers"""
 
     def __init__(self) -> None:
@@ -478,7 +763,7 @@ class ServerBase(Loggable, ABCMeta):
         self._packet_handlers: list
         self._ready: Event
         self._alive: Event
-        self._acceptor: Acceptor
+        self._acceptor: TaskType
         self._serv_sock: socket
 
     @property
@@ -660,7 +945,7 @@ class WvsShop(ServerBase):
         pass
 
 
-class World(ABCMeta):
+class World(metaclass=ABCMeta):
     def __init__(self: World, id: int):
         self._world: Worlds
         self._channels: list[World]
@@ -729,7 +1014,7 @@ class InventoryType(IntEnum):
 
 
 @define
-class GWItem(ABCMeta):
+class GWItem(metaclass=ABCMeta):
     """Base item class for all items
 
     Parameters
@@ -888,15 +1173,16 @@ class GWBundle(GWItem):
             packet.encode_long(self.lisn)
 
 
-class Inventory(ABCMeta):
+class Inventory(metaclass=ABCMeta):
     inv_type: InventoryType
     items: dict[int, GWItem | None]
     _slots: int
 
     def __init__(self, inv_type: InventoryType, slots: int):
-        self.inv_type: InventoryType = inv_type
-        self.items: dict[int, GWItem | None] = {i: None for i in range(slots)}
-        self._slots: int = slots
+        ...
+        self.inv_type: InventoryType
+        self.items: dict[int, GWItem | None]
+        self._slots: int
 
     def __getitem__(self, slot_idx: int) -> GWItem:
         ...
@@ -946,24 +1232,22 @@ class Inventory(ABCMeta):
 
 
 @define
-class MapleCharacter(ABCMeta):
+class MapleCharacter(metaclass=ABCMeta):
+    random = rng
+
     def __init__(self, stats: dict | None = None) -> None:
-        self._client: ClientBase | None = None
+        self._client: ClientBase | None
 
-        if not stats:
-            stats = {}
+        self._field: None | Field
+        self.stats: Stats
+        self.inventories: InventoryManager
+        self.func_keys: FuncKeys
+        self.modify: PlayerModifiers
+        self.skills: dict
 
-        self._field: None | Field = None
-        self.stats: Stats = Stats(**stats)
-        self.inventories: InventoryManager = InventoryManager(self)
-        self.func_keys: FuncKeys = FuncKeys(self)
-        self.modify: PlayerModifiers = PlayerModifiers(self)
-        self.skills: dict = {}
-        self.random: SystemRandom = rng
-
-        self.map_transfer = [0, 0, 0, 0, 0]
-        self.map_transfer_ex = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-        self.monster_book_cover_id = 0
+        self.map_transfer: list[int]
+        self.map_transfer_ex: list[int]
+        self.monster_book_cover_id: int
 
     @property
     def id(self) -> int:
@@ -1009,9 +1293,51 @@ class MapleCharacter(ABCMeta):
     def cash_inventory(self) -> Inventory:
         ...
 
+    def encode_entry(self, packet: Packet):
+        ...
+
+    def encode(self, packet: Packet):
+        ...
+
+    def encode_inventories(self, packet):
+        ...
+
+    def encode_skills(self, packet):
+        ...
+
+    def encode_quests(self, packet):
+        ...
+
+    def encode_minigames(self, packet):
+        ...
+
+    def encode_rings(self, packet):
+        ...
+
+    def encode_teleports(self, packet):
+        ...
+
+    def encode_monster_book(self, packet):
+        ...
+
+    def encode_new_year(self, packet):
+        ...
+
+    def encode_area(self, packet):
+        ...
+
+    def encode_look(self, packet):
+        ...
+
+    async def send_packet(self, packet):
+        if not self._client:
+            raise ConnectionError
+
+        await self._client.send_packet(packet)
+
 
 @define
-class Account(ABCMeta):
+class Account:
     id: int
     username: str
     password: str
@@ -1025,7 +1351,7 @@ class Account(ABCMeta):
 
 
 @define
-class PendingLogin(ABCMeta):
+class PendingLogin:
     def __init__(self, character: MapleCharacter, account: Account, requested: Any):
         self.character: MapleCharacter
         self.char_id: int

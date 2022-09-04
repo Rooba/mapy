@@ -1,17 +1,14 @@
 from attrs import define, field
 
 from ..client import WvsGameClient
-from ..constants import (PERMANENT, InventoryType, StatModifiers,
-                         is_extend_sp_job)
+from ..constants import PERMANENT, InventoryType, StatModifiers, is_extend_sp_job
 from ..cpacket import CPacket
-from ..packet import ByteBuffer
 from ..tools import Random
 from .field import Field, FieldObject
 from .inventory import Inventory, InventoryManager
 
 
 class MapleCharacter(FieldObject):
-
     def __init__(self, stats: dict | None = None):
         super().__init__()
         self._client: WvsGameClient | None = None
@@ -146,8 +143,7 @@ class MapleCharacter(FieldObject):
                 stickers[new_index] = item
 
         inv_equip = {
-            slot: item
-            for slot, item in self.equip_inventory.items.items() if slot >= 0
+            slot: item for slot, item in self.equip_inventory.items.items() if slot >= 0
         }
         dragon_equip = {
             slot: item
@@ -160,9 +156,7 @@ class MapleCharacter(FieldObject):
             if slot >= -1200 and slot < -1100
         }
 
-        for inv in [
-                eqp_normal, stickers, inv_equip, dragon_equip, mechanic_equip
-        ]:
+        for inv in [eqp_normal, stickers, inv_equip, dragon_equip, mechanic_equip]:
             for slot, item in inv.items():
                 if not item:
                     continue
@@ -183,8 +177,7 @@ class MapleCharacter(FieldObject):
             skill.encode(packet)
 
             if False:
-                packet.encode_int(
-                    skill.mastery_level)  # is skill needed for mastery
+                packet.encode_int(skill.mastery_level)  # is skill needed for mastery
 
         packet.encode_short(0)
 
@@ -251,8 +244,7 @@ class MapleCharacter(FieldObject):
 
             packet.encode_byte(0xFF)
 
-        packet.encode_int(
-            0 if not equipped.get(-111) else equipped[-111].item_id)
+        packet.encode_int(0 if not equipped.get(-111) else equipped[-111].item_id)
 
         # for pet_id in self.pet_ids:
         for pet_id in range(3):
@@ -266,7 +258,6 @@ class MapleCharacter(FieldObject):
 
 
 class CharacterEntry:
-
     def __init__(self, **stats):
         self._stats = Stats(**stats)
         self._equip = Inventory(InventoryType.EQUIP, 96)
@@ -327,8 +318,7 @@ class CharacterEntry:
 
             packet.encode_byte(0xFF)
 
-        packet.encode_int(
-            0 if not equipped.get(-111) else equipped[-111].item_id)
+        packet.encode_int(0 if not equipped.get(-111) else equipped[-111].item_id)
 
         # for pet_id in self.pet_ids:
         for pet_id in range(3):
@@ -342,7 +332,6 @@ class FuncKey:
 
 
 class FuncKeys:
-
     def __init__(self, character):
         self._parent = character
         self._func_keys = {}
@@ -355,7 +344,6 @@ class FuncKeys:
 
 
 class Skills(dict):
-
     def __init__(self, parent):
         self._parent = parent
 
@@ -365,8 +353,9 @@ class Skills(dict):
         if not skill:
             return False
 
-        await self._parent.modify.stats(hp=self._parent.stats.hp - 1,
-                                        mp=self._parent.stats.mp - 1)
+        await self._parent.modify.stats(
+            hp=self._parent.stats.hp - 1, mp=self._parent.stats.mp - 1
+        )
 
         # if skill.level_data.buff_time > 0:
         #     await self._parent.buffs.remove(skill.id)
@@ -466,7 +455,6 @@ class Stats(object):
 
 
 class StatModifier:
-
     def __init__(self, character_stats):
         self._modifiers = []
         self._stats = character_stats
@@ -502,11 +490,11 @@ class StatModifier:
                     packet.encode_short(self._stats.sp)
             else:
                 getattr(packet, f"encode_{modifier.encode}")(
-                    packet, getattr(self._stats, modifier.name.lower()))
+                    packet, getattr(self._stats, modifier.name.lower())
+                )
 
 
 class PlayerModifiers:
-
     def __init__(self, character):
         self._parent = character
 
@@ -515,8 +503,7 @@ class PlayerModifiers:
         modifier.alter(**stats)
 
         if modifier.modifiers:
-            await self._parent.send_packet(
-                CPacket.stat_changed(modifier, excl_req))
+            await self._parent.send_packet(CPacket.stat_changed(modifier, excl_req))
 
 
 @define(kw_only=True)
@@ -532,3 +519,17 @@ class SkillEntry(object):
         packet.encode_int(self.id)
         packet.encode_int(self.level)
         packet.encode_long(PERMANENT)  # skill.expiration
+
+
+@define
+class Account:
+    id: int = 0
+    username: str = ""
+    password: str = ""
+    gender: int = 0
+    creation: str = ""
+    last_login: str = ""
+    last_ip: str = "127.0.0.1"
+    ban: int = 0
+    admin: int = 0
+    last_connected_world: int = 0
