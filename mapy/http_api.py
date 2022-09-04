@@ -1,7 +1,5 @@
 from json import dumps
-from urllib.robotparser import RequestRate
 from sanic import Sanic, Blueprint, json
-from sanic.config import Config
 from sanic.blueprint_group import BlueprintGroup
 from re import compile
 
